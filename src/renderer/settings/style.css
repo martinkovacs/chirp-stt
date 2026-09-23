@@ -12,7 +12,7 @@
   --mint: #7ee0a7;
   --red: #ff6b5b;
   --mono: "JetBrains Mono", ui-monospace, monospace;
-  --sans: "IBM Plex Sans", sans-serif;
+  --sans: "Geist Sans", sans-serif;
   --serif: "Instrument Serif", serif;
   color-scheme: dark;
 }
@@ -109,7 +109,6 @@ main {
 h2 {
   font: italic 400 24px/1 var(--serif);
 }
-.idx { font: 500 10.5px/1 var(--mono); color: var(--faint); letter-spacing: 0.1em; }
 
 .lede { color: var(--muted); margin-bottom: 14px; font-size: 13px; }
 .fine { color: var(--faint); font-size: 12px; margin-top: 10px; }
@@ -292,10 +291,19 @@ button.ghost:hover { background: rgba(255, 255, 255, 0.04); }
 #history .del .icon { width: 14px; height: 14px; }
 #history li:hover .del, #history .del:focus-visible { opacity: 1; }
 #history .del:hover { color: var(--red, #ff6b5b); background: rgba(255, 107, 91, 0.12); }
-.card-head .link-btn {
-  margin-left: auto; margin-right: 10px;
-  font: 500 10.5px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--faint); background: none; border: 0; padding: 4px 0; cursor: pointer;
+.card-head { align-items: center; }
+.btn-danger {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: 500 12.5px/1 var(--sans);
+  color: var(--muted);
+  background: #0c0c0b;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  padding: 7px 11px 7px 9px;
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms, background 120ms;
 }
-.card-head .link-btn:hover { color: var(--red, #ff6b5b); }
-.card-head .link-btn[hidden] { display: none; }
+.btn-danger .icon { width: 14px; height: 14px; }
+.btn-danger:hover { color: var(--red); border-color: rgba(255, 107, 91, 0.45); background: rgba(255, 107, 91, 0.08); }
+.btn-danger:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255, 107, 91, 0.25); }
+.btn-danger[hidden] { display: none; }

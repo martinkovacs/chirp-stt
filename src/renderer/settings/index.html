@@ -19,7 +19,7 @@
 
     <main>
       <section class="card model" id="model-card" hidden>
-        <div class="card-head"><h2>Model</h2><span class="idx">00</span></div>
+        <div class="card-head"><h2>Model</h2></div>
         <p class="lede">Canary-1B-v2 · Q8_0 · 1.14 GB · runs fully offline</p>
         <div class="progress" id="progress" hidden><div id="bar"></div></div>
         <p class="fine" id="progress-label"></p>
@@ -30,7 +30,7 @@
       </section>
 
       <section class="card">
-        <div class="card-head"><h2>Language</h2><span class="idx">01</span></div>
+        <div class="card-head"><h2>Language</h2></div>
         <div class="lang-row">
           <label class="field">
             <span class="label">I speak</span>
@@ -46,7 +46,7 @@
       </section>
 
       <section class="card">
-        <div class="card-head"><h2>Push-to-talk</h2><span class="idx">02</span></div>
+        <div class="card-head"><h2>Push-to-talk</h2></div>
         <div class="key-display">
           <kbd id="key-label">…</kbd>
           <span class="fine">hold to dictate, release to paste · via <b id="key-kind">…</b></span>
@@ -82,7 +82,7 @@
       </section>
 
       <section class="card">
-        <div class="card-head"><h2>Output</h2><span class="idx">03</span></div>
+        <div class="card-head"><h2>Output</h2></div>
         <div class="seg" role="radiogroup" id="output-mode">
           <button data-value="paste" role="radio">Paste into focused app</button>
           <button data-value="clipboard" role="radio">Clipboard only</button>
@@ -106,7 +106,7 @@
       </section>
 
       <section class="card history">
-        <div class="card-head"><h2>Recent</h2><button id="history-clear" class="link-btn" hidden>Delete all</button><span class="idx">04</span></div>
+        <div class="card-head"><h2>Recent</h2><button id="history-clear" class="btn-danger" hidden><svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>Delete all</button></div>
         <ol id="history"></ol>
         <p class="fine empty" id="history-empty">Nothing yet. Hold the key and say something.</p>
       </section>
