@@ -9,7 +9,7 @@ import type { EventEmitter } from "node:events";
 
 export interface PasterDeps {
   /** e.g. electron clipboard.writeText; injected to keep this module Electron-free. */
-  writeClipboard: (text: string) => void;
+  writeClipboard: (text: string) => void | Promise<void>;
 }
 
 export interface PasteResult {
@@ -59,7 +59,7 @@ export class Paster {
   }
 
   async paste(text: string, opts: PasteOptions): Promise<PasteResult> {
-    this.deps.writeClipboard(text); // clipboard owner must be established before pasting
+    await this.deps.writeClipboard(text); // clipboard owner must be established before pasting
     if (opts.mode !== "paste") return { method: "clipboard" };
 
     if (process.platform === "linux" && VirtualKeyboard.available()) {

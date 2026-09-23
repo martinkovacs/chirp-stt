@@ -70,7 +70,7 @@ test("paste combos map to uiohook keys", () => {
 
 test("Paster always writes the clipboard and reports the method", async () => {
   const written: string[] = [];
-  const paster = new Paster({ writeClipboard: (text) => written.push(text) });
+  const paster = new Paster({ writeClipboard: (text) => { written.push(text); } });
   const result = await paster.paste("hü", { mode: "clipboard", combo: "ctrl+v" });
   assert.deepEqual(written, ["hü"]);
   assert.deepEqual(result, { method: "clipboard" });

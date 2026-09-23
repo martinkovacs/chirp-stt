@@ -108,8 +108,8 @@ Settings and history are stored in `~/.config/chirp-stt/` on Linux,
 | Piece | Linux / Wayland | Windows / macOS / X11 |
 | --- | --- | --- |
 | Hold-to-talk key | evdev (`/dev/input`), falling back to the xdg GlobalShortcuts portal | uiohook |
-| Paste | Clipboard, then Ctrl+V from a `/dev/uinput` virtual keyboard | Clipboard, then a uiohook key tap |
-| Overlay | Electron window under XWayland, so it can be positioned and kept on top | Native |
+| Paste | Clipboard via `wl-copy`, then Ctrl+V from a `/dev/uinput` virtual keyboard | Clipboard, then a uiohook key tap |
+| Windows | Native Wayland; the compositor places the overlay | Native |
 
 **Live preview on a non-streaming model.** Canary isn't a streaming model, so while you
 talk Chirp re-decodes the audio that isn't committed yet about every 400 ms. When you pause
@@ -132,10 +132,12 @@ down. If the worker crashes, it is restarted and the model is reloaded automatic
   Quit it from the tray first if you want to run a fresh build.
 - **Text is copied but not pasted.** Check `/dev/uinput` permissions, or try
   Ctrl+Shift+V as the paste shortcut (terminals).
-- **Blank or crashing windows on Linux.** Chirp runs under XWayland with hardware
-  acceleration off, which avoids GPU-process crashes with some drivers. Only the UI is
-  affected; the model still runs on the GPU. To try native Wayland, set
-  `CHIRP_NATIVE_WAYLAND=1` (the overlay may then not stay on top or in position).
+- **Text is not pasted on Wayland.** Install `wl-clipboard`. Wayland only lets the
+  focused app set the clipboard, and Chirp never has focus while you dictate, so it
+  copies through `wl-copy`.
+- **Tray icon but no window, with `XGetWindowAttributes failed` in the log.** You're running
+  under XWayland (`CHIRP_X11=1`), where Electron can fail to draw on some GPU drivers. Unset
+  it to use native Wayland.
 - **Status doesn't show "Vulkan0".** Vulkan wasn't found. Install your GPU's Vulkan driver
   (`vulkan-radeon`, `vulkan-intel` or `nvidia-utils`) and check with `vulkaninfo`.
 

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, screen, session, Tray } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, session, Tray } from "electron";
 import type { MenuItemConstructorOptions } from "electron";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
@@ -12,17 +12,15 @@ import { createHotkeySource } from "./input/hotkey.ts";
 import { PortalHotkeySource } from "./input/portal.ts";
 import type { HotkeySource } from "./input/types.ts";
 import { Paster } from "./output/paster.ts";
+import { writeClipboardText } from "./output/clipboard.ts";
 import { ensureDesktopEntry, LINUX_APP_ID, setAutostart } from "./autostart.ts";
 
-// Under native Wayland an app can neither position its windows nor keep them
-// on top, which the overlay needs. XWayland handles both (and clipboard sync)
-// on KDE/GNOME. Hotkeys and pasting go through evdev/uinput/portal, so they
-// are unaffected. Opt out with CHIRP_NATIVE_WAYLAND=1.
-if (process.platform === "linux" && !process.env.CHIRP_NATIVE_WAYLAND) {
+// Native Wayland on Wayland sessions. Under XWayland the GPU process crashes
+// (NVIDIA/GBM) and the software fallback draws nothing, so X11 is opt-in only
+// (CHIRP_X11=1). Wayland ignores window positions, so the compositor places
+// the overlay; hotkeys and pasting go through evdev/portal/uinput anyway.
+if (process.platform === "linux" && process.env.CHIRP_X11) {
   app.commandLine.appendSwitch("ozone-platform", "x11");
-  // The UI is two tiny windows; software rendering avoids GPU-process crashes
-  // seen with NVIDIA under XWayland and leaves VRAM to the speech model.
-  app.disableHardwareAcceleration();
 }
 app.setName("chirp-stt");
 
@@ -426,7 +424,7 @@ function registerIpc() {
   ipcMain.handle(IPC.getHistory, () => history.list());
   ipcMain.handle(IPC.hotkeyInfo, () => hotkeyInfo);
   ipcMain.handle(IPC.downloadModel, () => startDownload());
-  ipcMain.handle(IPC.copyText, (_e, text: string) => clipboard.writeText(String(text)));
+  ipcMain.handle(IPC.copyText, (_e, text: string) => writeClipboardText(String(text)));
   ipcMain.handle(IPC.pickModel, async () => {
     const opts = { title: "Choose a Canary GGUF model", filters: [{ name: "GGUF", extensions: ["gguf"] }], properties: ["openFile" as const] };
     const r = settingsWin ? await dialog.showOpenDialog(settingsWin, opts) : await dialog.showOpenDialog(opts);
@@ -477,7 +475,7 @@ void app.whenReady().then(async () => {
   const userData = app.getPath("userData");
   settingsStore = new SettingsStore(userData);
   history = new HistoryStore(userData);
-  paster = new Paster({ writeClipboard: (t) => clipboard.writeText(t) });
+  paster = new Paster({ writeClipboard: writeClipboardText });
   paster.prepare();
   stt = new SttClient(defaultWorkerPath());
 
