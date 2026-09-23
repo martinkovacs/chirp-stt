@@ -113,6 +113,8 @@ export const IPC = {
   setSettings: "settings:set",
   getStatus: "status:get",
   getHistory: "history:get",
+  deleteHistory: "history:delete",
+  clearHistory: "history:clear",
   downloadModel: "model:download",
   pickModel: "model:pick",
   copyText: "text:copy",

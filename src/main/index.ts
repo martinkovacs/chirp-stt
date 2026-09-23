@@ -443,6 +443,8 @@ function registerIpc() {
   ipcMain.handle(IPC.setSettings, (_e, patch: Partial<Settings>) => settingsStore.update(patch));
   ipcMain.handle(IPC.getStatus, () => status);
   ipcMain.handle(IPC.getHistory, () => history.list());
+  ipcMain.handle(IPC.deleteHistory, (_e, at: unknown) => typeof at === "number" && history.remove(at));
+  ipcMain.handle(IPC.clearHistory, () => history.clear());
   ipcMain.handle(IPC.hotkeyInfo, () => hotkeyInfo);
   ipcMain.handle(IPC.downloadModel, () => startDownload());
   ipcMain.handle(IPC.copyText, (_e, text: string) => writeClipboardText(String(text)));

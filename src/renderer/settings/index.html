@@ -36,7 +36,7 @@
             <span class="label">I speak</span>
             <select id="source"></select>
           </label>
-          <button id="swap" class="swap" title="Swap languages" aria-label="Swap languages">⇄</button>
+          <button id="swap" class="swap" title="Swap languages" aria-label="Swap languages"><svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5.5h10M10 3l2.5 2.5L10 8M13.5 10.5h-10M6 8l-2.5 2.5L6 13"/></svg></button>
           <label class="field">
             <span class="label">Write it in</span>
             <select id="target"></select>
@@ -106,7 +106,7 @@
       </section>
 
       <section class="card history">
-        <div class="card-head"><h2>Recent</h2><span class="idx">04</span></div>
+        <div class="card-head"><h2>Recent</h2><button id="history-clear" class="link-btn" hidden>Delete all</button><span class="idx">04</span></div>
         <ol id="history"></ol>
         <p class="fine empty" id="history-empty">Nothing yet. Hold the key and say something.</p>
       </section>

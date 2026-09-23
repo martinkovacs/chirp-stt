@@ -41,6 +41,15 @@ export class HistoryStore extends EventEmitter {
     this.emit("change");
   }
 
+  remove(at: number): boolean {
+    const before = this.#entries.length;
+    this.#entries = this.#entries.filter((e) => e.at !== at);
+    if (this.#entries.length === before) return false;
+    this.#scheduleWrite();
+    this.emit("change");
+    return true;
+  }
+
   clear(): void {
     this.#entries = [];
     this.flush();

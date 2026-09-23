@@ -6,6 +6,7 @@ import "./style.css";
 import { LANGUAGES } from "../../shared/types.ts";
 import type { AppStatus, HistoryEntry, Settings } from "../../shared/types.ts";
 import type { HotkeyInfo } from "../../preload/index.ts";
+import { icon, langPair } from "../icons.ts";
 
 const chirp = window.chirp;
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -174,6 +175,7 @@ function renderHotkey(h: HotkeyInfo) {
 const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
 function renderHistory(items: HistoryEntry[]) {
   $("history-empty").hidden = items.length > 0;
+  $("history-clear").hidden = items.length === 0;
   $("history").replaceChildren(
     ...items.slice(0, 50).map((h) => {
       const li = document.createElement("li");
@@ -184,12 +186,19 @@ function renderHistory(items: HistoryEntry[]) {
       t.textContent = h.text;
       const l = document.createElement("span");
       l.className = "l";
-      l.textContent =
-        h.sourceLanguage === h.targetLanguage
-          ? h.sourceLanguage.toUpperCase()
-          : `${h.sourceLanguage}→${h.targetLanguage}`.toUpperCase();
+      l.replaceChildren(...langPair(h.sourceLanguage, h.targetLanguage));
+      const del = document.createElement("button");
+      del.className = "del";
+      del.title = "Delete";
+      del.setAttribute("aria-label", "Delete");
+      del.append(icon("trash"));
+      del.addEventListener("click", (e) => {
+        e.stopPropagation();
+        li.remove(); // the store broadcasts the updated list right after
+        void chirp.deleteHistory(h.at);
+      });
       li.title = "Click to copy";
-      li.append(time, t, l);
+      li.append(time, t, l, del);
       li.addEventListener("click", () => {
         void chirp.copyText(h.text);
         li.classList.add("copied");
@@ -200,6 +209,10 @@ function renderHistory(items: HistoryEntry[]) {
     }),
   );
 }
+
+$("history-clear").addEventListener("click", () => {
+  if (confirm("Delete all recent transcriptions? This cannot be undone.")) void chirp.clearHistory();
+});
 
 // ---- microphones ----
 async function loadMics() {

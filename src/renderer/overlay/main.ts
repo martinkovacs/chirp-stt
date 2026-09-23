@@ -5,6 +5,7 @@ import "@fontsource/jetbrains-mono/500.css";
 import "./style.css";
 import { startCapture, type Capture } from "./capture.ts";
 import type { OverlayState, Settings } from "../../shared/types.ts";
+import { langPair } from "../icons.ts";
 
 const chirp = window.chirp;
 const $ = (id: string) => document.getElementById(id)!;
@@ -17,10 +18,7 @@ const langsEl = $("langs");
 const bars = Array.from(pill.querySelectorAll<HTMLElement>(".meter i"));
 
 function renderLangs(s: Settings) {
-  langsEl.textContent =
-    s.sourceLanguage === s.targetLanguage
-      ? s.sourceLanguage.toUpperCase()
-      : `${s.sourceLanguage.toUpperCase()} → ${s.targetLanguage.toUpperCase()}`;
+  langsEl.replaceChildren(...langPair(s.sourceLanguage, s.targetLanguage));
 }
 void chirp.getSettings().then(renderLangs);
 chirp.onSettings(renderLangs);

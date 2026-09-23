@@ -130,6 +130,9 @@ body {
 /* ---- language badge ---- */
 .langs {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font: 500 10.5px/1 var(--mono);
   letter-spacing: 0.08em;
   color: var(--amber);
@@ -137,6 +140,8 @@ body {
   border: 1px solid rgba(255, 159, 28, 0.35);
   border-radius: 6px;
 }
+
+.langs .icon { width: 11px; height: 11px; margin-top: -1px; }
 
 /* ---- transcript ---- */
 .text-wrap {
