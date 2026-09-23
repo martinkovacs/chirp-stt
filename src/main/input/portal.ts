@@ -164,9 +164,11 @@ export class PortalHotkeySource extends EventEmitter implements HotkeySource {
     if (typeof handle !== "string") throw new Error("portal did not return a session_handle");
     this.sessionHandle = handle;
 
-    // If our shortcut is already bound (same trigger persisted), skip the dialog.
-    const bound = await this.listShortcuts(bus);
-    if (!bound.some((entry) => entry.id === SHORTCUT_ID)) {
+    // Bind on every start, even if the shortcut is already listed: KDE only
+    // activates the kglobalaccel component in BindShortcuts, so skipping it
+    // leaves the shortcut registered but dead. A persisted binding doesn't
+    // show the dialog again.
+    {
       const bindReply = await bus.call(
         new dbus.Message({
           destination: PORTAL_DEST,
