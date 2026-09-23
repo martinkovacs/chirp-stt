@@ -93,7 +93,7 @@ function overlayOrigin(display: Electron.Display) {
   const wa = display.workArea;
   return {
     x: Math.round(wa.x + (wa.width - OVERLAY_W) / 2),
-    y: Math.round(wa.y + wa.height - OVERLAY_H - 28),
+    y: Math.round(wa.y + wa.height - OVERLAY_H - 68),
   };
 }
 
