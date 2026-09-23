@@ -111,7 +111,7 @@ Settings and history are stored in `~/.config/chirp-stt/` on Linux,
 | --- | --- | --- |
 | Hold-to-talk key | evdev (`/dev/input`), falling back to the xdg GlobalShortcuts portal | uiohook |
 | Paste | Clipboard via `wl-copy`, then Ctrl+V from a `/dev/uinput` virtual keyboard | Clipboard, then a uiohook key tap |
-| Windows | Native Wayland; the compositor places the overlay | Native |
+| Windows | Native Wayland; on KDE a KWin window rule keeps the overlay unfocusable, on top and at the bottom centre | Native |
 
 **Live preview on a non-streaming model.** Canary isn't a streaming model, so while you
 talk Chirp re-decodes the audio that isn't committed yet about every 400 ms. When you pause
@@ -137,6 +137,9 @@ down. If the worker crashes, it is restarted and the model is reloaded automatic
 - **Text is not pasted on Wayland.** Install `wl-clipboard`. Wayland only lets the
   focused app set the clipboard, and Chirp never has focus while you dictate, so it
   copies through `wl-copy`.
+- **Paste lands nowhere / the overlay steals focus.** On KDE, Chirp adds a window rule
+  "Chirp dictation overlay" (System Settings → Window Rules) that stops the overlay from taking
+  focus. On other compositors Chirp hides the overlay before pasting so focus returns to your app.
 - **Tray icon but no window, with `XGetWindowAttributes failed` in the log.** You're running
   under XWayland (`CHIRP_X11=1`), where Electron can fail to draw on some GPU drivers. Unset
   it to use native Wayland.

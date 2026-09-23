@@ -13,6 +13,7 @@ import { PortalHotkeySource } from "./input/portal.ts";
 import type { HotkeySource } from "./input/types.ts";
 import { Paster } from "./output/paster.ts";
 import { writeClipboardText } from "./output/clipboard.ts";
+import { ensureOverlayRule } from "./kwin-rule.ts";
 import { ensureDesktopEntry, LINUX_APP_ID, setAutostart } from "./autostart.ts";
 
 // Native Wayland on Wayland sessions. Under XWayland the GPU process crashes
@@ -88,16 +89,33 @@ function createOverlay() {
   loadPage(overlayWin, "overlay");
 }
 
+function overlayOrigin(display: Electron.Display) {
+  const wa = display.workArea;
+  return {
+    x: Math.round(wa.x + (wa.width - OVERLAY_W) / 2),
+    y: Math.round(wa.y + wa.height - OVERLAY_H - 28),
+  };
+}
+
 function positionOverlay() {
   if (!overlayWin) return;
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-  const wa = display.workArea;
-  overlayWin.setBounds({
-    x: Math.round(wa.x + (wa.width - OVERLAY_W) / 2),
-    y: Math.round(wa.y + wa.height - OVERLAY_H - 28),
-    width: OVERLAY_W,
-    height: OVERLAY_H,
-  });
+  overlayWin.setBounds({ ...overlayOrigin(display), width: OVERLAY_W, height: OVERLAY_H });
+}
+
+/**
+ * Compositors that ignore focusable:false (without the KWin rule) activate
+ * the overlay, which would swallow the paste keystroke. Hide it and give focus
+ * back to the user's window first. Returns true if that was necessary.
+ */
+async function releaseOverlayFocus(): Promise<boolean> {
+  if (!overlayWin?.isFocused()) return false;
+  if (overlayHideTimer) clearTimeout(overlayHideTimer);
+  overlayHideTimer = null;
+  overlayWin.hide();
+  for (let i = 0; i < 20 && overlayWin.isFocused(); i++) await delay(20);
+  await delay(80);
+  return true;
 }
 
 let overlayHideTimer: NodeJS.Timeout | null = null;
@@ -347,6 +365,7 @@ async function onHotkeyUp() {
       return;
     }
     const out = s.appendSpace ? `${text} ` : text;
+    const stoleFocus = s.outputMode === "paste" && (await releaseOverlayFocus());
     const { method } = await paster.paste(out, { mode: s.outputMode, combo: s.pasteCombo });
     history.add({
       at: Date.now(),
@@ -355,7 +374,9 @@ async function onHotkeyUp() {
       targetLanguage: s.targetLanguage,
       audioMs: result.audioMs,
     });
-    flashOverlay({ phase: "done", text: method === "clipboard" && s.outputMode === "paste" ? `${text}  (copied)` : text }, 1400);
+    // Re-showing would steal focus again right after pasting.
+    if (stoleFocus) setOverlay({ phase: "hidden" });
+    else flashOverlay({ phase: "done", text: method === "clipboard" && s.outputMode === "paste" ? `${text}  (copied)` : text }, 1400);
   } catch (err) {
     flashOverlay({ phase: "error", message: errMsg(err) }, 3000);
   } finally {
@@ -485,6 +506,7 @@ void app.whenReady().then(async () => {
   ensureDesktopEntry();
   registerIpc();
   createOverlay();
+  ensureOverlayRule({ title: "Chirp overlay", ...overlayOrigin(screen.getPrimaryDisplay()) });
 
   tray = new Tray(trayImage("off"));
   tray.on("click", openSettings);
