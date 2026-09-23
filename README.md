@@ -26,6 +26,8 @@ language, so you have to choose it.
 
 ## Quick start (Linux)
 
+Needs Node 22+, a Vulkan driver and `wl-clipboard` on Wayland.
+
 ```sh
 git clone <this repo> chirp-stt && cd chirp-stt
 npm install
