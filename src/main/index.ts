@@ -32,8 +32,11 @@ const preloadPath = join(here, "../preload/index.mjs");
 
 // A second launch with --toggle starts/stops dictation, so users can bind the
 // command to any desktop shortcut as a fallback.
-if (!app.requestSingleInstanceLock()) {
-  app.quit();
+// The second instance only forwards its argv; it must not start anything itself.
+const isPrimary = app.requestSingleInstanceLock();
+if (!isPrimary) {
+  console.log("[chirp] already running; forwarded to the existing instance");
+  app.exit(0);
 }
 
 let settingsStore: SettingsStore;
@@ -470,6 +473,7 @@ app.on("before-quit", () => {
 });
 
 void app.whenReady().then(async () => {
+  if (!isPrimary) return;
   const userData = app.getPath("userData");
   settingsStore = new SettingsStore(userData);
   history = new HistoryStore(userData);
