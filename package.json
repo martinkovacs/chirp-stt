@@ -1,0 +1,103 @@
+{
+  "name": "chirp-stt",
+  "productName": "Chirp",
+  "version": "0.1.0",
+  "description": "Hold-to-talk speech-to-text with translation, powered by transcribe.cpp + Canary-1B-v2",
+  "main": "out/main/index.js",
+  "type": "module",
+  "author": "Martin Kovacs",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "dist": "electron-vite build && electron-builder"
+  },
+  "dependencies": {
+    "dbus-next": "^0.10.2",
+    "koffi": "^3.3.1",
+    "transcribe-cpp": "^0.2.3",
+    "uiohook-napi": "^1.5.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true,
+    "koffi@3.3.1": true,
+    "uiohook-napi@1.5.5": true,
+    "electron-winstaller@5.4.0": true,
+    "electron@44.4.5": true,
+    "usocket": false
+  },
+  "build": {
+    "appId": "com.chirp.stt",
+    "productName": "Chirp",
+    "executableName": "chirp-stt",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": ".",
+        "filter": [
+          "*.png"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "node_modules/transcribe-cpp/**",
+      "node_modules/@transcribe-cpp/**",
+      "node_modules/koffi/**",
+      "node_modules/uiohook-napi/**"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "resources/icon.png",
+      "desktop": {
+        "entry": {
+          "Name": "Chirp",
+          "Comment": "Hold-to-talk speech-to-text and translation",
+          "StartupWMClass": "chirp-stt"
+        }
+      }
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "resources/icon.png"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "resources/icon.png",
+      "category": "public.app-category.productivity",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Chirp transcribes what you say while you hold the dictation key."
+      }
+    }
+  }
+}

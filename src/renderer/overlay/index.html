@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; media-src 'self' blob: mediastream:" />
+    <title>Chirp overlay</title>
+  </head>
+  <body>
+    <div id="pill" class="pill" data-phase="hidden">
+      <div class="tally" aria-hidden="true">
+        <span class="ring"></span>
+        <span class="dot"></span>
+      </div>
+      <div class="meter" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i>
+      </div>
+      <span id="langs" class="langs">HU → EN</span>
+      <div class="text-wrap">
+        <p id="text" class="text"><span id="committed"></span><span id="tentative" class="tentative"></span><span id="hint" class="hint">listening…</span></p>
+      </div>
+      <span id="status" class="status"></span>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

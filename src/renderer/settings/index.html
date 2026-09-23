@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:" />
+    <title>Chirp</title>
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="brand">
+        <h1>Chirp</h1>
+        <span class="tag">hold · speak · paste</span>
+      </div>
+      <div id="engine" class="engine" data-state="loading">
+        <span class="lamp"></span>
+        <span id="engine-label">starting…</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card model" id="model-card" hidden>
+        <div class="card-head"><h2>Model</h2><span class="idx">00</span></div>
+        <p class="lede">Canary-1B-v2 · Q8_0 · 1.14 GB · runs fully offline</p>
+        <div class="progress" id="progress" hidden><div id="bar"></div></div>
+        <p class="fine" id="progress-label"></p>
+        <div class="row-actions">
+          <button id="download" class="primary">Download model</button>
+          <button id="pick" class="ghost">Use a local .gguf…</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Language</h2><span class="idx">01</span></div>
+        <div class="lang-row">
+          <label class="field">
+            <span class="label">I speak</span>
+            <select id="source"></select>
+          </label>
+          <button id="swap" class="swap" title="Swap languages" aria-label="Swap languages">⇄</button>
+          <label class="field">
+            <span class="label">Write it in</span>
+            <select id="target"></select>
+          </label>
+        </div>
+        <p class="fine" id="mode-note"></p>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Push-to-talk</h2><span class="idx">02</span></div>
+        <div class="key-display">
+          <kbd id="key-label">…</kbd>
+          <span class="fine">hold to dictate, release to paste · via <b id="key-kind">…</b></span>
+        </div>
+        <div class="grid2">
+          <label class="field">
+            <span class="label">Backend</span>
+            <select id="hotkey-backend">
+              <option value="auto">Auto</option>
+              <option value="evdev">evdev (Linux, any key)</option>
+              <option value="portal">Desktop portal (Wayland)</option>
+              <option value="uiohook">uiohook (Win / macOS / X11)</option>
+            </select>
+          </label>
+          <label class="field" id="evdev-field">
+            <span class="label">Key</span>
+            <select id="evdev-key"></select>
+          </label>
+          <label class="field" id="uiohook-field">
+            <span class="label">Key</span>
+            <select id="uiohook-key"></select>
+          </label>
+          <label class="field" id="portal-field">
+            <span class="label">Preferred shortcut</span>
+            <input id="portal-trigger" spellcheck="false" />
+          </label>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="chord" />
+          <span>Cancel if another key is pressed while holding <em>(keeps AltGr+key typing working)</em></span>
+        </label>
+        <ul class="warnings" id="warnings"></ul>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Output</h2><span class="idx">03</span></div>
+        <div class="seg" role="radiogroup" id="output-mode">
+          <button data-value="paste" role="radio">Paste into focused app</button>
+          <button data-value="clipboard" role="radio">Clipboard only</button>
+        </div>
+        <div class="grid2">
+          <label class="field">
+            <span class="label">Paste keys</span>
+            <select id="paste-combo">
+              <option value="ctrl+v">Ctrl+V</option>
+              <option value="ctrl+shift+v">Ctrl+Shift+V (terminals)</option>
+              <option value="shift+insert">Shift+Insert</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="label">Microphone</span>
+            <select id="mic"></select>
+          </label>
+        </div>
+        <label class="check"><input type="checkbox" id="space" /><span>Add a trailing space</span></label>
+        <label class="check"><input type="checkbox" id="login" /><span>Launch at login</span></label>
+      </section>
+
+      <section class="card history">
+        <div class="card-head"><h2>Recent</h2><span class="idx">04</span></div>
+        <ol id="history"></ol>
+        <p class="fine empty" id="history-empty">Nothing yet. Hold the key and say something.</p>
+      </section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
