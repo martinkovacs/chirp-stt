@@ -9,8 +9,7 @@
   --mint: #7ee0a7;
   --red: #ff6b5b;
   --mono: "JetBrains Mono", ui-monospace, monospace;
-  --sans: "Geist Sans", sans-serif;
-  --serif: "Instrument Serif", serif;
+  --sans: "IBM Plex Sans", sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; }
@@ -160,9 +159,6 @@ body {
   word-wrap: break-word;
 }
 .tentative {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1.12em;
   color: var(--paper-dim);
 }
 .hint {
