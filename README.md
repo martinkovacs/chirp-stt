@@ -114,8 +114,8 @@ Settings and history are stored in `~/.config/chirp-stt/` on Linux,
 | Windows | Native Wayland; on KDE a KWin window rule keeps the overlay unfocusable, on top and at the bottom centre | Native |
 
 **Live preview on a non-streaming model.** Canary isn't a streaming model, so while you
-talk Chirp re-decodes the audio that isn't committed yet about every 400 ms. When you pause
-(at least 500 ms of silence once a segment is 6 s or longer), the segment is decoded once
+talk Chirp re-decodes the audio that isn't committed yet about every 800 ms. When you pause
+(at least 500 ms of silence once a segment is 8 s or longer), the segment is decoded once
 more, committed, and never decoded again. Continuous speech is force-cut at 25 s. This
 keeps long dictations fast, and each decode costs only a few milliseconds on the GPU.
 

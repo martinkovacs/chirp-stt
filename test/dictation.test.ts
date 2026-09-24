@@ -102,7 +102,7 @@ describe("Dictation", () => {
 
   it("commits after >= 6 s of audio plus >= 500 ms silence and never re-decodes it", async () => {
     const { decode, calls } = makeDecode();
-    const { d, events } = makeDictation(decode, { partialIntervalMs: 500 });
+    const { d, events } = makeDictation(decode, { partialIntervalMs: 500, minSegmentMs: 6000 });
 
     await stream(d, speech(6500));
     await stream(d, silence(1000));

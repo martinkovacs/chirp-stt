@@ -62,6 +62,8 @@ export interface HistoryEntry {
   sourceLanguage: string;
   targetLanguage: string;
   audioMs: number;
+  /** Time from releasing the key (stop request) until the final text was ready. */
+  finalMs?: number;
 }
 
 // ---------------------------------------------------------------------------

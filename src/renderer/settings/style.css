@@ -266,7 +266,9 @@ button.ghost:hover { background: rgba(255, 255, 255, 0.04); }
   transition: background 120ms;
 }
 #history li:hover { background: rgba(255, 255, 255, 0.035); }
+#history .when { display: flex; flex-direction: column; gap: 3px; }
 #history time { font: 11px var(--mono); color: var(--faint); }
+#history .dur { font: 10px var(--mono); color: var(--faint); opacity: 0.75; }
 #history .t { color: var(--paper); font-size: 13.5px; }
 #history .l { font: 500 10px var(--mono); color: var(--amber); letter-spacing: 0.06em; }
 #history li.copied .l { color: var(--mint); }

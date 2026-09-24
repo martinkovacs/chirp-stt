@@ -54,4 +54,21 @@ describe("HistoryStore", () => {
 
     store.flush();
   });
+
+  it("finalMs round-trips and old entries without it still load", () => {
+    const dir = path.join(tmp, "finalms-case");
+    const store = new HistoryStore(dir);
+    store.add({ ...entry(4000), finalMs: 1234 });
+    store.flush();
+    const reloaded = new HistoryStore(dir);
+    assert.equal(reloaded.list()[0]!.finalMs, 1234);
+
+    const legacyFile = path.join(dir, "history.json");
+    const legacy = [{ at: 5000, text: "old", sourceLanguage: "hu", targetLanguage: "en", audioMs: 900 }];
+    fs.writeFileSync(legacyFile, JSON.stringify(legacy), "utf8");
+    const legacyStore = new HistoryStore(dir);
+    const loaded = legacyStore.list().find((e) => e.at === 5000);
+    assert.ok(loaded, "legacy entry loads");
+    assert.equal(loaded.finalMs, undefined);
+  });
 });

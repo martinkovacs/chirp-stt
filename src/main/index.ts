@@ -357,7 +357,9 @@ async function onHotkeyUp() {
 
   const s = settingsStore.get();
   try {
+    const t = performance.now();
     const result = await stt.stop(id);
+    const finalMs = Math.round(performance.now() - t);
     if (sessionId !== id) return;
     const text = result.text.trim();
     if (!text) {
@@ -373,6 +375,7 @@ async function onHotkeyUp() {
       sourceLanguage: s.sourceLanguage,
       targetLanguage: s.targetLanguage,
       audioMs: result.audioMs,
+      finalMs,
     });
     // Re-showing would steal focus again right after pasting.
     if (stoleFocus) setOverlay({ phase: "hidden" });
