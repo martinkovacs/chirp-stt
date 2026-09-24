@@ -1,0 +1,87 @@
+# Builds a Linux zip and a Windows Squirrel installer and publishes them as a
+# GitHub release. Push a tag like v0.2.0 to release; the tag sets the version.
+# Running it by hand, or on a PR that touches packaging, only builds and
+# keeps the artifacts.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - package.json
+      - package-lock.json
+      - electron.vite.config.ts
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+            target: --linux
+            files: |
+              release/*.zip
+          - os: windows-latest
+            name: windows
+            target: --win
+            files: |
+              release/squirrel-windows/*.exe
+              release/squirrel-windows/*.nupkg
+              release/squirrel-windows/RELEASES
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # package.json uses npm 12's allowScripts to gate install scripts.
+      - run: npm install -g npm@12
+
+      - run: npm ci
+
+      - name: Take the version from the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+
+      # uiohook's X11 code needs a display, even just to load.
+      - if: matrix.name == 'linux'
+        run: npm run typecheck && xvfb-run -a npm test
+
+      - run: npm run build
+
+      # Targets and artifact names live in package.json ("build").
+      - run: npx electron-builder ${{ matrix.target }} --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chirp-${{ matrix.name }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

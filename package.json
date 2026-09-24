@@ -70,9 +70,9 @@
     ],
     "linux": {
       "target": [
-        "AppImage",
-        "deb"
+        "zip"
       ],
+      "artifactName": "Chirp-${version}-linux-${arch}.${ext}",
       "category": "Utility",
       "icon": "resources/icon.png",
       "desktop": {
@@ -85,10 +85,14 @@
     },
     "win": {
       "target": [
-        "nsis"
+        "squirrel"
       ],
       "icon": "resources/icon.png"
     },
+    "squirrelWindows": {
+      "artifactName": "Chirp-Setup-${version}.${ext}"
+    },
+    "npmRebuild": false,
     "mac": {
       "target": [
         "dmg"
