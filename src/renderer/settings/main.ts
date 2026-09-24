@@ -141,9 +141,14 @@ function renderStatus(s: AppStatus) {
   $("progress").hidden = s.state !== "downloading";
   $("progress-label").textContent = "";
   switch (s.state) {
-    case "no-model":
+    case "no-model": {
       label.textContent = "model missing";
+      const size = s.model.size >= 1e9 ? `${(s.model.size / 1e9).toFixed(2)} GB` : `${mb(s.model.size)} MB`;
+      $("model-lede").textContent =
+        `Canary-1B-v2 · ${s.model.label} · ${size} · runs fully offline` +
+        ($<HTMLSelectElement>("compute-backend").value === "cpu" ? ". The CPU backend needs this smaller model." : "");
       break;
+    }
     case "downloading": {
       const pct = s.total ? (100 * s.received) / s.total : 0;
       label.textContent = `downloading ${pct.toFixed(0)}%`;

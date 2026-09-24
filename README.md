@@ -10,8 +10,9 @@ Wispr Flow, but runs locally on your own GPU.
   [Canary-1B-v2 Q8_0](https://huggingface.co/handy-computer/canary-1b-v2-gguf):
   25 European languages, transcription or any↔any translation.
 - **GPU:** Vulkan (NVIDIA, AMD, Intel), or CUDA / ROCm / Metal where transcribe.cpp provides
-  them; pick one in Settings → Engine. The CPU backend only runs models under 1 GiB (such as
-  Q6_K), because Electron's allocator refuses larger aligned allocations.
+  them; pick one in Settings → Engine. The CPU backend instead uses the smaller Q4_K_M model
+  (735 MB, downloaded on demand), because Electron's allocator can't hold the Q8 weights in
+  one block.
 - **Lives in the tray:** a small overlay shows the live text while you talk, and a settings
   window holds languages, hotkey, output mode and history.
 - **Platforms:** Linux with Wayland first (developed on KDE Plasma), also X11, Windows and macOS.

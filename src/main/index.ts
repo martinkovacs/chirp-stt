@@ -3,10 +3,10 @@ import type { MenuItemConstructorOptions } from "electron";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { IPC, LANGUAGES } from "../shared/types.ts";
-import type { AppStatus, DecodeOptions, OverlayState, Settings } from "../shared/types.ts";
+import type { AppStatus, ComputeBackend, DecodeOptions, OverlayState, Settings } from "../shared/types.ts";
 import { SettingsStore } from "./settings.ts";
 import { HistoryStore } from "./history.ts";
-import { DEFAULT_MODEL, defaultModelPath, downloadModel, modelExists, resolveModelPath } from "./model-manager.ts";
+import { defaultModelPath, downloadModel, modelExists, modelFor, resolveModelPath } from "./model-manager.ts";
 import { SttClient, defaultWorkerPath } from "./stt/client.ts";
 import { createHotkeySource } from "./input/hotkey.ts";
 import { PortalHotkeySource } from "./input/portal.ts";
@@ -247,16 +247,29 @@ function setStatus(s: AppStatus) {
   refreshTray();
 }
 
+// The CPU backend needs the smaller Q4_K_M model (Electron's allocator can't
+// hold the Q8 weights in one aligned block).
+async function effectiveBackend(): Promise<{ backend: ComputeBackend; cpu: boolean }> {
+  const list = await stt.backendList();
+  const saved = settingsStore.get().computeBackend;
+  const backend = list.some((b) => b.backend === saved) ? saved : list[0]?.backend ?? "cpu";
+  return { backend, cpu: backend === "cpu" };
+}
+
 async function loadModel() {
-  const path = resolveModelPath(settingsStore.get(), app.getPath("userData"));
+  const userData = app.getPath("userData");
+  const settings = settingsStore.get();
+  const { backend, cpu } = await effectiveBackend();
+  const model = modelFor(cpu);
+  const path = resolveModelPath(settings, userData, cpu);
   if (!modelExists(path)) {
-    setStatus({ state: "no-model" });
+    setStatus({ state: "no-model", model: { label: model.label, size: model.size } });
     return;
   }
   setStatus({ state: "loading" });
   try {
-    const { backend } = await stt.load(path, settingsStore.get().computeBackend);
-    setStatus({ state: "ready", backend });
+    const loaded = await stt.load(path, backend);
+    setStatus({ state: "ready", backend: loaded.backend });
   } catch (err) {
     setStatus({ state: "error", message: errMsg(err) });
   }
@@ -265,16 +278,21 @@ async function loadModel() {
 async function startDownload() {
   if (downloadAbort) return;
   downloadAbort = new AbortController();
-  const dest = defaultModelPath(app.getPath("userData"));
+  const { cpu } = await effectiveBackend();
+  const model = modelFor(cpu);
+  const dest = defaultModelPath(app.getPath("userData"), model);
   try {
-    setStatus({ state: "downloading", received: 0, total: DEFAULT_MODEL.size });
+    setStatus({ state: "downloading", received: 0, total: model.size });
     await downloadModel({
       dest,
-      expectedSize: DEFAULT_MODEL.size,
+      url: model.url,
+      expectedSize: model.size,
       signal: downloadAbort.signal,
       onProgress: (received, total) => setStatus({ state: "downloading", received, total }),
     });
-    settingsStore.update({ modelPath: "" });
+    // Keep today's behavior: a custom modelPath beats the default, so only
+    // clear it when the downloaded model is the default (non-CPU) one.
+    if (!cpu) settingsStore.update({ modelPath: "" });
     await loadModel();
   } catch (err) {
     setStatus({ state: "error", message: `Download failed: ${errMsg(err)}` });

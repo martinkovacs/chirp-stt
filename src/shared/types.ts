@@ -109,7 +109,7 @@ export type FromWorker =
 // ---------------------------------------------------------------------------
 
 export type AppStatus =
-  | { state: "no-model" }
+  | { state: "no-model"; model: { label: string; size: number } }
   | { state: "downloading"; received: number; total: number }
   | { state: "loading" }
   | { state: "ready"; backend: string }

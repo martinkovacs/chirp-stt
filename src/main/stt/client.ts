@@ -16,6 +16,7 @@ interface Pending<T> {
 }
 
 const STOP_TIMEOUT_MS = 30_000;
+const BACKENDS_TIMEOUT_MS = 10_000;
 
 export function defaultWorkerPath(): string {
   return fileURLToPath(new URL("./stt-worker.js", import.meta.url));
@@ -43,6 +44,20 @@ export class SttClient extends EventEmitter {
 
   get backends(): BackendChoice[] {
     return this.backendChoices;
+  }
+
+  /** Cached backend list, or the one the worker sends at startup. */
+  backendList(): Promise<BackendChoice[]> {
+    if (this.backendChoices.length) return Promise.resolve(this.backendChoices);
+    // Spawning the worker (without a load) makes it emit "backends" once.
+    this.ensure();
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(this.backendChoices), BACKENDS_TIMEOUT_MS);
+      this.once("backends", (list: BackendChoice[]) => {
+        clearTimeout(timer);
+        resolve(list);
+      });
+    });
   }
 
   load(modelPath: string, backend: ComputeBackend): Promise<{ backend: string; loadMs: number }> {
