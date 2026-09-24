@@ -96,6 +96,7 @@ main {
 .card:nth-child(3) { animation-delay: 80ms; }
 .card:nth-child(4) { animation-delay: 120ms; }
 .card:nth-child(5) { animation-delay: 160ms; }
+.card:nth-child(6) { animation-delay: 200ms; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 
 .card.model { border-color: rgba(255, 159, 28, 0.35); background: linear-gradient(180deg, #221c12, var(--card)); }
@@ -266,7 +267,9 @@ button.ghost:hover { background: rgba(255, 255, 255, 0.04); }
   transition: background 120ms;
 }
 #history li:hover { background: rgba(255, 255, 255, 0.035); }
+#history .when { display: flex; flex-direction: column; gap: 3px; }
 #history time { font: 11px var(--mono); color: var(--faint); }
+#history .dur { font: 10px var(--mono); color: var(--faint); opacity: 0.75; }
 #history .t { color: var(--paper); font-size: 13.5px; }
 #history .l { font: 500 10px var(--mono); color: var(--amber); letter-spacing: 0.06em; }
 #history li.copied .l { color: var(--mint); }

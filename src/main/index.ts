@@ -255,7 +255,7 @@ async function loadModel() {
   }
   setStatus({ state: "loading" });
   try {
-    const { backend } = await stt.load(path);
+    const { backend } = await stt.load(path, settingsStore.get().computeBackend);
     setStatus({ state: "ready", backend });
   } catch (err) {
     setStatus({ state: "error", message: errMsg(err) });
@@ -357,7 +357,9 @@ async function onHotkeyUp() {
 
   const s = settingsStore.get();
   try {
+    const t = performance.now();
     const result = await stt.stop(id);
+    const finalMs = Math.round(performance.now() - t);
     if (sessionId !== id) return;
     const text = result.text.trim();
     if (!text) {
@@ -373,6 +375,7 @@ async function onHotkeyUp() {
       sourceLanguage: s.sourceLanguage,
       targetLanguage: s.targetLanguage,
       audioMs: result.audioMs,
+      finalMs,
     });
     // Re-showing would steal focus again right after pasting.
     if (stoleFocus) setOverlay({ phase: "hidden" });
@@ -442,6 +445,7 @@ function registerIpc() {
   ipcMain.handle(IPC.getSettings, () => settingsStore.get());
   ipcMain.handle(IPC.setSettings, (_e, patch: Partial<Settings>) => settingsStore.update(patch));
   ipcMain.handle(IPC.getStatus, () => status);
+  ipcMain.handle(IPC.getBackends, () => stt.backends);
   ipcMain.handle(IPC.getHistory, () => history.list());
   ipcMain.handle(IPC.deleteHistory, (_e, at: unknown) => typeof at === "number" && history.remove(at));
   ipcMain.handle(IPC.clearHistory, () => history.clear());
@@ -519,6 +523,7 @@ void app.whenReady().then(async () => {
     lastPartial = { committed, tentative };
     if (!showTimer) setOverlay({ phase: "listening", committed, tentative, level: 0 });
   });
+  stt.on("backends", (list) => broadcast(IPC.backendsChanged, list));
   stt.on("crashed", (reason: string) => {
     console.error("[stt] worker crashed:", reason);
     cancelDictation();
@@ -529,7 +534,7 @@ void app.whenReady().then(async () => {
   settingsStore.on("change", (next: Settings, prev: Settings) => {
     broadcast(IPC.settingsChanged, next);
     refreshTray();
-    if (next.modelPath !== prev.modelPath) void loadModel();
+    if (next.modelPath !== prev.modelPath || next.computeBackend !== prev.computeBackend) void loadModel();
     if (
       next.hotkeyBackend !== prev.hotkeyBackend ||
       next.evdevKey !== prev.evdevKey ||

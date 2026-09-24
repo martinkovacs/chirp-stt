@@ -1,8 +1,9 @@
 // Electron utilityProcess entry: owns the transcribe.cpp model so inference
 // never blocks the main process.
-import { TranscribeModel } from "transcribe-cpp";
+import { TranscribeModel, getAvailableBackends, backendAvailable } from "transcribe-cpp";
+import type { Backend } from "transcribe-cpp";
 import { Dictation } from "./dictation.ts";
-import type { DecodeOptions, FromWorker, ToWorker } from "../../shared/types.ts";
+import type { BackendChoice, ComputeBackend, DecodeOptions, FromWorker, ToWorker } from "../../shared/types.ts";
 
 interface ParentPort {
   on(event: "message", listener: (e: { data: ToWorker }) => void): void;
@@ -29,19 +30,53 @@ function errMsg(err: unknown) {
   return err instanceof Error ? err.message : String(err);
 }
 
-async function load(path: string) {
+// Which compute backends the UI can offer. kind strings observed from
+// getAvailableBackends(): "vulkan", "cuda", "rocm", "metal", "cpu".
+const BACKENDS: { backend: ComputeBackend; label: string; kind: string }[] = [
+  { backend: "auto", label: "Auto", kind: "" },
+  { backend: "vulkan", label: "Vulkan", kind: "vulkan" },
+  { backend: "cuda", label: "CUDA", kind: "cuda" },
+  { backend: "rocm", label: "ROCm", kind: "rocm" },
+  { backend: "metal", label: "Metal", kind: "metal" },
+  { backend: "cpu", label: "CPU", kind: "cpu" },
+];
+
+function listBackends(): BackendChoice[] {
+  try {
+    const devices = getAvailableBackends();
+    // The first non-CPU device is what "auto" would likely pick.
+    const autoDevice = devices.find((d) => d.kind !== "cpu") ?? devices.find((d) => d.kind === "cpu");
+    return BACKENDS.map(({ backend, label, kind }) => {
+      const available = backend === "auto" || safeAvailable(backend);
+      const device = (kind ? devices.find((d) => d.kind === kind) : autoDevice)?.description ?? "";
+      return { backend, label, available, device };
+    });
+  } catch {
+    return BACKENDS.map(({ backend, label }) => ({ backend, label, available: backend === "auto", device: "" }));
+  }
+}
+
+function safeAvailable(backend: Backend): boolean {
+  try {
+    return backendAvailable(backend);
+  } catch {
+    return false;
+  }
+}
+
+async function load(path: string, backend: ComputeBackend) {
   const t = performance.now();
   active?.dictation.cancel();
   active = null;
   await serial(async () => {
     model?.dispose();
     model = null;
-    const m = await TranscribeModel.load(path);
+    const m = await TranscribeModel.load(path, { backend });
     // First decode compiles GPU pipelines (can take seconds); do it now.
     await m.transcribe(new Float32Array(16000), { language: "en" });
     model = m;
   });
-  send({ type: "loaded", backend: model!.backend, loadMs: Math.round(performance.now() - t) });
+  send({ type: "loaded", backend: model!.backend, loadMs: Math.round(performance.now() - t), backends: listBackends() });
 }
 
 function start(id: number, options: DecodeOptions) {
@@ -82,7 +117,7 @@ async function stop(id: number) {
 port.on("message", ({ data: msg }) => {
   switch (msg.type) {
     case "load":
-      load(msg.modelPath).catch((err) => send({ type: "load-error", message: errMsg(err) }));
+      load(msg.modelPath, msg.backend).catch((err) => send({ type: "load-error", message: errMsg(err) }));
       break;
     case "start":
       start(msg.id, msg.options);
@@ -101,3 +136,6 @@ port.on("message", ({ data: msg }) => {
       break;
   }
 });
+
+// Device list is static for the process lifetime; send it once at startup.
+send({ type: "backends", backends: listBackends() });

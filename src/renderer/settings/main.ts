@@ -4,7 +4,7 @@ import "@fontsource/space-grotesk/500.css";
 import "@fontsource/jetbrains-mono/500.css";
 import "./style.css";
 import { LANGUAGES } from "../../shared/types.ts";
-import type { AppStatus, HistoryEntry, Settings } from "../../shared/types.ts";
+import type { AppStatus, BackendChoice, HistoryEntry, Settings } from "../../shared/types.ts";
 import type { HotkeyInfo } from "../../preload/index.ts";
 import { icon, langPair } from "../icons.ts";
 
@@ -77,6 +77,30 @@ function render(s: Settings) {
   $<HTMLInputElement>("space").checked = s.appendSpace;
   $<HTMLInputElement>("login").checked = s.launchAtLogin;
   $<HTMLSelectElement>("mic").value = s.micDeviceId;
+  renderBackends();
+}
+
+// ---- compute backend ----
+let backends: BackendChoice[] = [];
+function renderBackends(list = backends) {
+  backends = list;
+  const select = $<HTMLSelectElement>("compute-backend");
+  const current = settings?.computeBackend ?? "auto";
+  // Keep the saved choice visible even before the worker has reported its devices.
+  const shown = list.some((b) => b.backend === current)
+    ? list
+    : [...list, { backend: current, label: current === "auto" ? "Auto" : current, available: true, device: "" }];
+  select.replaceChildren(
+    ...shown.map((b) => {
+      const o = new Option(
+        [b.label, b.device].filter(Boolean).join(" · ") + (b.available ? "" : " (not available)"),
+        b.backend,
+      );
+      o.disabled = !b.available && b.backend !== current;
+      return o;
+    }),
+  );
+  select.value = current;
 }
 
 // ---- bindings ----
@@ -96,6 +120,7 @@ bindSelect("evdev-key", "evdevKey");
 bindSelect("uiohook-key", "uiohookKey");
 bindSelect("paste-combo", "pasteCombo");
 bindSelect("mic", "micDeviceId");
+bindSelect("compute-backend", "computeBackend");
 bindCheck("chord", "cancelOnChord");
 bindCheck("space", "appendSpace");
 bindCheck("login", "launchAtLogin");
@@ -173,6 +198,9 @@ function renderHotkey(h: HotkeyInfo) {
 
 // ---- history ----
 const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
+function duration(ms: number) {
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(ms < 10000 ? 2 : 1)} s`;
+}
 function renderHistory(items: HistoryEntry[]) {
   $("history-empty").hidden = items.length > 0;
   $("history-clear").hidden = items.length === 0;
@@ -181,6 +209,16 @@ function renderHistory(items: HistoryEntry[]) {
       const li = document.createElement("li");
       const time = document.createElement("time");
       time.textContent = timeFmt.format(h.at);
+      const when = document.createElement("span");
+      when.className = "when";
+      when.append(time);
+      if (h.finalMs !== undefined) {
+        const dur = document.createElement("span");
+        dur.className = "dur";
+        dur.textContent = duration(h.finalMs);
+        dur.title = `Final transcription took ${duration(h.finalMs)} for ${duration(h.audioMs)} of audio`;
+        when.append(dur);
+      }
       const t = document.createElement("span");
       t.className = "t";
       t.textContent = h.text;
@@ -198,7 +236,7 @@ function renderHistory(items: HistoryEntry[]) {
         void chirp.deleteHistory(h.at);
       });
       li.title = "Click to copy";
-      li.append(time, t, l, del);
+      li.append(when, t, l, del);
       li.addEventListener("click", () => {
         void chirp.copyText(h.text);
         li.classList.add("copied");
@@ -227,6 +265,7 @@ async function loadMics() {
 
 async function init() {
   await loadMics();
+  backends = await chirp.getBackends();
   render(await chirp.getSettings());
   renderStatus(await chirp.getStatus());
   renderHotkey(await chirp.getHotkeyInfo());
@@ -235,6 +274,7 @@ async function init() {
   chirp.onStatus(renderStatus);
   chirp.onHotkeyInfo(renderHotkey);
   chirp.onHistory(renderHistory);
+  chirp.onBackends(renderBackends);
   navigator.mediaDevices.addEventListener("devicechange", () => void loadMics());
 }
 void init();

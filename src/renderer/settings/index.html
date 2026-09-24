@@ -105,6 +105,15 @@
         <label class="check"><input type="checkbox" id="login" /><span>Launch at login</span></label>
       </section>
 
+      <section class="card">
+        <div class="card-head"><h2>Engine</h2></div>
+        <label class="field">
+          <span class="label">Compute backend</span>
+          <select id="compute-backend"></select>
+        </label>
+        <p class="fine">Switching reloads the model. The first dictation after a reload is slower while the GPU compiles its shaders.</p>
+      </section>
+
       <section class="card history">
         <div class="card-head"><h2>Recent</h2><button id="history-clear" class="btn-danger" hidden><svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>Delete all</button></div>
         <ol id="history"></ol>
