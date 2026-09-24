@@ -56,7 +56,7 @@ export class Dictation {
     this.onPartial = opts.onPartial;
     this.sr = opts.sampleRate ?? 16000;
     this.frame = Math.round((this.sr * FRAME_MS) / 1000);
-    this.partialEvery = Math.round(((opts.partialIntervalMs ?? 400) * this.sr) / 1000);
+    this.partialEvery = Math.round(((opts.partialIntervalMs ?? 800) * this.sr) / 1000);
     this.minSegment = Math.round(((opts.minSegmentMs ?? 6000) * this.sr) / 1000);
     this.silenceFrames = Math.ceil((opts.silenceMs ?? 500) / FRAME_MS);
     this.maxSegment = Math.round(((opts.maxSegmentMs ?? 25000) * this.sr) / 1000);

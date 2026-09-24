@@ -9,6 +9,8 @@ import { langPair } from "../icons.ts";
 const chirp = window.chirp;
 const $ = (id: string) => document.getElementById(id)!;
 const pill = $("pill");
+const wrapEl = pill.querySelector<HTMLElement>(".text-wrap")!;
+const textEl = $("text");
 const committedEl = $("committed");
 const tentativeEl = $("tentative");
 const hintEl = $("hint");
@@ -26,6 +28,7 @@ function setText(committed: string, tentative: string) {
   committedEl.textContent = committed ? committed + (tentative ? " " : "") : "";
   tentativeEl.textContent = tentative;
   hintEl.textContent = committed || tentative ? "" : "listening…";
+  wrapEl.classList.toggle("overflow", textEl.offsetHeight > wrapEl.clientHeight + 1);
 }
 
 chirp.onOverlay((s: OverlayState) => {
