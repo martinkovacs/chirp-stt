@@ -94,6 +94,7 @@ function isEntry(v: unknown): v is HistoryEntry {
     typeof o.text === "string" &&
     typeof o.sourceLanguage === "string" &&
     typeof o.targetLanguage === "string" &&
-    typeof o.audioMs === "number"
+    typeof o.audioMs === "number" &&
+    (o.finalMs === undefined || typeof o.finalMs === "number")
   );
 }

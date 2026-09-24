@@ -2,8 +2,8 @@
   --ink: #111110;
   --ink-2: #1b1a18;
   --line: rgba(255, 244, 225, 0.09);
-  --paper: #f3ecdf;
-  --paper-dim: rgba(243, 236, 223, 0.5);
+  --paper: #fbf7f0;
+  --paper-dim: rgba(251, 247, 240, 0.72);
   --amber: #ff9f1c;
   --amber-glow: rgba(255, 159, 28, 0.45);
   --mint: #7ee0a7;
@@ -46,7 +46,7 @@ body {
     radial-gradient(120% 140% at 0% 0%, rgba(255, 159, 28, 0.08), transparent 55%),
     linear-gradient(180deg, var(--ink-2), var(--ink));
   border: 1px solid var(--line);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  isolation: isolate;
   transform-origin: 50% 100%;
   transition:
     opacity 180ms ease,
@@ -54,11 +54,12 @@ body {
     border-color 200ms ease;
 }
 
-/* film grain */
+/* film grain, under the content */
 .pill::after {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: -1;
   border-radius: inherit;
   pointer-events: none;
   opacity: 0.07;
@@ -152,7 +153,9 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  /* older lines fade out at the top */
+}
+/* older lines fade out at the top, only once they scroll out of view */
+.text-wrap.overflow {
   -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 0.9em);
 }
 .text {

@@ -173,6 +173,9 @@ function renderHotkey(h: HotkeyInfo) {
 
 // ---- history ----
 const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
+function duration(ms: number) {
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(ms < 10000 ? 2 : 1)} s`;
+}
 function renderHistory(items: HistoryEntry[]) {
   $("history-empty").hidden = items.length > 0;
   $("history-clear").hidden = items.length === 0;
@@ -181,6 +184,16 @@ function renderHistory(items: HistoryEntry[]) {
       const li = document.createElement("li");
       const time = document.createElement("time");
       time.textContent = timeFmt.format(h.at);
+      const when = document.createElement("span");
+      when.className = "when";
+      when.append(time);
+      if (h.finalMs !== undefined) {
+        const dur = document.createElement("span");
+        dur.className = "dur";
+        dur.textContent = duration(h.finalMs);
+        dur.title = `Final transcription took ${duration(h.finalMs)} for ${duration(h.audioMs)} of audio`;
+        when.append(dur);
+      }
       const t = document.createElement("span");
       t.className = "t";
       t.textContent = h.text;
@@ -198,7 +211,7 @@ function renderHistory(items: HistoryEntry[]) {
         void chirp.deleteHistory(h.at);
       });
       li.title = "Click to copy";
-      li.append(time, t, l, del);
+      li.append(when, t, l, del);
       li.addEventListener("click", () => {
         void chirp.copyText(h.text);
         li.classList.add("copied");
