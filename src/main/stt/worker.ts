@@ -1,7 +1,7 @@
 // Electron utilityProcess entry: owns the transcribe.cpp model so inference
 // never blocks the main process.
 import { TranscribeModel, getAvailableBackends, backendAvailable } from "transcribe-cpp";
-import type { Backend } from "transcribe-cpp";
+import { statSync } from "node:fs";
 import { Dictation } from "./dictation.ts";
 import type { BackendChoice, ComputeBackend, DecodeOptions, FromWorker, ToWorker } from "../../shared/types.ts";
 
@@ -30,53 +30,57 @@ function errMsg(err: unknown) {
   return err instanceof Error ? err.message : String(err);
 }
 
-// Which compute backends the UI can offer. kind strings observed from
-// getAvailableBackends(): "vulkan", "cuda", "rocm", "metal", "cpu".
-const BACKENDS: { backend: ComputeBackend; label: string; kind: string }[] = [
-  { backend: "auto", label: "Auto", kind: "" },
-  { backend: "vulkan", label: "Vulkan", kind: "vulkan" },
-  { backend: "cuda", label: "CUDA", kind: "cuda" },
-  { backend: "rocm", label: "ROCm", kind: "rocm" },
-  { backend: "metal", label: "Metal", kind: "metal" },
-  { backend: "cpu", label: "CPU", kind: "cpu" },
+// Compute backends in order of preference; only available ones are offered.
+const BACKENDS: { backend: Exclude<ComputeBackend, "auto">; label: string }[] = [
+  { backend: "cuda", label: "CUDA" },
+  { backend: "rocm", label: "ROCm" },
+  { backend: "metal", label: "Metal" },
+  { backend: "vulkan", label: "Vulkan" },
+  { backend: "cpu", label: "CPU" },
 ];
 
 function listBackends(): BackendChoice[] {
   try {
     const devices = getAvailableBackends();
-    // The first non-CPU device is what "auto" would likely pick.
-    const autoDevice = devices.find((d) => d.kind !== "cpu") ?? devices.find((d) => d.kind === "cpu");
-    return BACKENDS.map(({ backend, label, kind }) => {
-      const available = backend === "auto" || safeAvailable(backend);
-      const device = (kind ? devices.find((d) => d.kind === kind) : autoDevice)?.description ?? "";
-      return { backend, label, available, device };
-    });
+    return BACKENDS.filter(({ backend }) => backendAvailable(backend)).map(({ backend, label }) => ({
+      backend,
+      label,
+      device: devices.find((d) => d.kind === backend)?.description ?? "",
+    }));
   } catch {
-    return BACKENDS.map(({ backend, label }) => ({ backend, label, available: backend === "auto", device: "" }));
+    return [];
   }
 }
 
-function safeAvailable(backend: Backend): boolean {
-  try {
-    return backendAvailable(backend);
-  } catch {
-    return false;
-  }
-}
+// Electron replaces malloc with PartitionAlloc, which traps (SIGTRAP, exit
+// code 133) on aligned allocations over 1 GiB. ggml allocates CPU weights as
+// one aligned block, so bigger models can't run on the CPU backend.
+const MAX_CPU_MODEL_BYTES = 1024 ** 3;
 
 async function load(path: string, backend: ComputeBackend) {
   const t = performance.now();
   active?.dictation.cancel();
   active = null;
+  const choices = listBackends();
+  // A saved backend that is no longer available falls back to the best one.
+  const resolved = choices.some((c) => c.backend === backend) ? backend : "auto";
+  const effective = resolved === "auto" ? choices[0]?.backend ?? "cpu" : resolved;
+  const size = statSync(path).size;
+  if (effective === "cpu" && size > MAX_CPU_MODEL_BYTES) {
+    throw new Error(
+      `The CPU backend can't load models over 1 GiB (this one is ${(size / 1e9).toFixed(2)} GB). ` +
+        "Use a GPU backend or a smaller quantization such as Q6_K.",
+    );
+  }
   await serial(async () => {
     model?.dispose();
     model = null;
-    const m = await TranscribeModel.load(path, { backend });
+    const m = await TranscribeModel.load(path, { backend: resolved });
     // First decode compiles GPU pipelines (can take seconds); do it now.
     await m.transcribe(new Float32Array(16000), { language: "en" });
     model = m;
   });
-  send({ type: "loaded", backend: model!.backend, loadMs: Math.round(performance.now() - t), backends: listBackends() });
+  send({ type: "loaded", backend: model!.backend, loadMs: Math.round(performance.now() - t), backends: choices });
 }
 
 function start(id: number, options: DecodeOptions) {

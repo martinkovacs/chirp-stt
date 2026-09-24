@@ -9,7 +9,9 @@ Wispr Flow, but runs locally on your own GPU.
 - **Engine:** [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp) with
   [Canary-1B-v2 Q8_0](https://huggingface.co/handy-computer/canary-1b-v2-gguf):
   25 European languages, transcription or any↔any translation.
-- **GPU:** Vulkan (NVIDIA, AMD, Intel), with a CPU fallback.
+- **GPU:** Vulkan (NVIDIA, AMD, Intel), or CUDA / ROCm / Metal where transcribe.cpp provides
+  them; pick one in Settings → Engine. The CPU backend only runs models under 1 GiB (such as
+  Q6_K), because Electron's allocator refuses larger aligned allocations.
 - **Lives in the tray:** a small overlay shows the live text while you talk, and a settings
   window holds languages, hotkey, output mode and history.
 - **Platforms:** Linux with Wayland first (developed on KDE Plasma), also X11, Windows and macOS.
@@ -115,7 +117,7 @@ Settings and history are stored in `~/.config/chirp-stt/` on Linux,
 
 **Live preview on a non-streaming model.** Canary isn't a streaming model, so while you
 talk Chirp re-decodes the audio that isn't committed yet about every 800 ms. When you pause
-(at least 500 ms of silence once a segment is 6 s or longer), the segment is decoded once
+(at least 500 ms of silence once a segment is 8 s or longer), the segment is decoded once
 more, committed, and never decoded again. Continuous speech is force-cut at 25 s. This
 keeps long dictations fast, and each decode costs only a few milliseconds on the GPU.
 

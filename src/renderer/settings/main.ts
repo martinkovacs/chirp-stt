@@ -85,22 +85,11 @@ let backends: BackendChoice[] = [];
 function renderBackends(list = backends) {
   backends = list;
   const select = $<HTMLSelectElement>("compute-backend");
-  const current = settings?.computeBackend ?? "auto";
-  // Keep the saved choice visible even before the worker has reported its devices.
-  const shown = list.some((b) => b.backend === current)
-    ? list
-    : [...list, { backend: current, label: current === "auto" ? "Auto" : current, available: true, device: "" }];
-  select.replaceChildren(
-    ...shown.map((b) => {
-      const o = new Option(
-        [b.label, b.device].filter(Boolean).join(" · ") + (b.available ? "" : " (not available)"),
-        b.backend,
-      );
-      o.disabled = !b.available && b.backend !== current;
-      return o;
-    }),
-  );
-  select.value = current;
+  select.replaceChildren(...list.map((b) => new Option([b.label, b.device].filter(Boolean).join(" · "), b.backend)));
+  // Until the user picks one, show the best available backend (listed first).
+  const saved = settings?.computeBackend;
+  select.value = list.some((b) => b.backend === saved) ? saved : (list[0]?.backend ?? "");
+  select.disabled = list.length === 0;
 }
 
 // ---- bindings ----

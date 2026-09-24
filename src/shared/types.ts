@@ -16,11 +16,10 @@ export type ComputeBackend = "auto" | "vulkan" | "cuda" | "rocm" | "metal" | "cp
 export type OutputMode = "paste" | "clipboard";
 export type PasteCombo = "ctrl+v" | "ctrl+shift+v" | "shift+insert";
 
-/** One selectable compute backend as shown in the settings UI. */
+/** One available compute backend as shown in the settings UI, best first. */
 export interface BackendChoice {
-  backend: ComputeBackend;
+  backend: Exclude<ComputeBackend, "auto">;
   label: string;
-  available: boolean;
   /** Human device description, e.g. "NVIDIA GeForce RTX 5060 Ti", or "" if unknown. */
   device: string;
 }
@@ -28,7 +27,7 @@ export interface BackendChoice {
 export interface Settings {
   /** Absolute path to the GGUF model. Empty = default location in userData/models. */
   modelPath: string;
-  /** Compute backend for inference ("auto" picks the best available device). */
+  /** Compute backend for inference. "auto" (never picked by the user) = best available. */
   computeBackend: ComputeBackend;
   /** Spoken language (Canary has no auto-detect). */
   sourceLanguage: string;

@@ -527,6 +527,11 @@ void app.whenReady().then(async () => {
   stt.on("crashed", (reason: string) => {
     console.error("[stt] worker crashed:", reason);
     cancelDictation();
+    // Crashing while loading would crash again on every reload.
+    if (status.state === "loading") {
+      setStatus({ state: "error", message: `Speech engine crashed while loading the model (${reason})` });
+      return;
+    }
     setStatus({ state: "error", message: "Speech engine crashed, reloading…" });
     void loadModel();
   });
