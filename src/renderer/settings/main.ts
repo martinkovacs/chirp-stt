@@ -133,7 +133,9 @@ $("pick").addEventListener("click", () => void chirp.pickModel());
 function mb(n: number) {
   return (n / 1e6).toFixed(0);
 }
+let lastStatus: AppStatus | null = null;
 function renderStatus(s: AppStatus) {
+  lastStatus = s;
   const engine = $("engine");
   engine.dataset.state = s.state;
   const label = $("engine-label");
@@ -259,7 +261,14 @@ async function loadMics() {
 
 async function init() {
   await loadMics();
-  backends = await chirp.getBackends();
+  // Subscribe first: the list may arrive while the calls below are in flight,
+  // and it's only broadcast once. The no-model note depends on the selection.
+  chirp.onBackends((list) => {
+    renderBackends(list);
+    if (lastStatus) renderStatus(lastStatus);
+  });
+  const initial = await chirp.getBackends();
+  if (!backends.length) backends = initial;
   render(await chirp.getSettings());
   renderStatus(await chirp.getStatus());
   renderHotkey(await chirp.getHotkeyInfo());
@@ -268,7 +277,6 @@ async function init() {
   chirp.onStatus(renderStatus);
   chirp.onHotkeyInfo(renderHotkey);
   chirp.onHistory(renderHistory);
-  chirp.onBackends(renderBackends);
   navigator.mediaDevices.addEventListener("devicechange", () => void loadMics());
 }
 void init();

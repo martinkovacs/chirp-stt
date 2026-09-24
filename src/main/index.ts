@@ -1,13 +1,14 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, session, Tray } from "electron";
 import type { MenuItemConstructorOptions } from "electron";
 import { fileURLToPath } from "node:url";
+import { statSync } from "node:fs";
 import { join } from "node:path";
 import { IPC, LANGUAGES } from "../shared/types.ts";
 import type { AppStatus, ComputeBackend, DecodeOptions, OverlayState, Settings } from "../shared/types.ts";
 import { SettingsStore } from "./settings.ts";
 import { HistoryStore } from "./history.ts";
-import { defaultModelPath, downloadModel, modelExists, modelFor, resolveModelPath } from "./model-manager.ts";
-import { SttClient, defaultWorkerPath } from "./stt/client.ts";
+import { CPU_MAX_MODEL_BYTES, defaultModelPath, downloadModel, modelExists, modelFor, resolveModelPath } from "./model-manager.ts";
+import { SttClient, SupersededError, defaultWorkerPath } from "./stt/client.ts";
 import { createHotkeySource } from "./input/hotkey.ts";
 import { PortalHotkeySource } from "./input/portal.ts";
 import type { HotkeySource } from "./input/types.ts";
@@ -252,7 +253,8 @@ function setStatus(s: AppStatus) {
 async function effectiveBackend(): Promise<{ backend: ComputeBackend; cpu: boolean }> {
   const list = await stt.backendList();
   const saved = settingsStore.get().computeBackend;
-  const backend = list.some((b) => b.backend === saved) ? saved : list[0]?.backend ?? "cpu";
+  // No list (the worker never reported one): let transcribe.cpp pick.
+  const backend = list.some((b) => b.backend === saved) ? saved : list[0]?.backend ?? "auto";
   return { backend, cpu: backend === "cpu" };
 }
 
@@ -271,7 +273,7 @@ async function loadModel() {
     const loaded = await stt.load(path, backend);
     setStatus({ state: "ready", backend: loaded.backend });
   } catch (err) {
-    setStatus({ state: "error", message: errMsg(err) });
+    if (!(err instanceof SupersededError)) setStatus({ state: "error", message: errMsg(err) });
   }
 }
 
@@ -473,9 +475,19 @@ function registerIpc() {
   ipcMain.handle(IPC.pickModel, async () => {
     const opts = { title: "Choose a Canary GGUF model", filters: [{ name: "GGUF", extensions: ["gguf"] }], properties: ["openFile" as const] };
     const r = settingsWin ? await dialog.showOpenDialog(settingsWin, opts) : await dialog.showOpenDialog(opts);
-    if (r.canceled || !r.filePaths[0]) return null;
-    settingsStore.update({ modelPath: r.filePaths[0] });
-    return r.filePaths[0];
+    const picked = r.filePaths[0];
+    if (r.canceled || !picked) return null;
+    settingsStore.update({ modelPath: picked });
+    if ((await effectiveBackend()).cpu && statSync(picked).size > CPU_MAX_MODEL_BYTES) {
+      const msg = {
+        type: "info" as const,
+        message: "This model is too big for the CPU backend",
+        detail: `It will be used on GPU backends. On CPU, Chirp keeps using the smaller ${modelFor(true).label} model.`,
+      };
+      if (settingsWin) await dialog.showMessageBox(settingsWin, msg);
+      else await dialog.showMessageBox(msg);
+    }
+    return picked;
   });
   ipcMain.on(IPC.audioChunk, (_e, pcm: Float32Array) => {
     if (phase !== "idle" && capturing) stt.push(sessionId, pcm);
@@ -546,6 +558,7 @@ void app.whenReady().then(async () => {
     console.error("[stt] worker crashed:", reason);
     cancelDictation();
     // Crashing while loading would crash again on every reload.
+    if (status.state === "downloading") return; // the download reloads when it's done
     if (status.state === "loading") {
       setStatus({ state: "error", message: `Speech engine crashed while loading the model (${reason})` });
       return;

@@ -90,16 +90,16 @@ export interface DecodeOptions {
 }
 
 export type ToWorker =
-  | { type: "load"; modelPath: string; backend: ComputeBackend }
+  | { type: "load"; loadId: number; modelPath: string; backend: ComputeBackend }
   | { type: "start"; id: number; options: DecodeOptions }
   | { type: "audio"; id: number; pcm: Float32Array }
   | { type: "stop"; id: number }
   | { type: "cancel"; id: number };
 
 export type FromWorker =
-  | { type: "loaded"; backend: string; loadMs: number; backends: BackendChoice[] }
+  | { type: "loaded"; loadId: number; backend: string; loadMs: number; backends: BackendChoice[] }
   | { type: "backends"; backends: BackendChoice[] }
-  | { type: "load-error"; message: string }
+  | { type: "load-error"; loadId: number; message: string }
   | { type: "partial"; id: number; committed: string; tentative: string }
   | { type: "final"; id: number; text: string; audioMs: number; decodeMs: number }
   | { type: "error"; id?: number; message: string };

@@ -57,7 +57,7 @@ function listBackends(): BackendChoice[] {
 // one aligned block, so bigger models can't run on the CPU backend.
 const MAX_CPU_MODEL_BYTES = 1024 ** 3;
 
-async function load(path: string, backend: ComputeBackend) {
+async function load(loadId: number, path: string, backend: ComputeBackend) {
   const t = performance.now();
   active?.dictation.cancel();
   active = null;
@@ -80,7 +80,7 @@ async function load(path: string, backend: ComputeBackend) {
     await m.transcribe(new Float32Array(16000), { language: "en" });
     model = m;
   });
-  send({ type: "loaded", backend: model!.backend, loadMs: Math.round(performance.now() - t), backends: choices });
+  send({ type: "loaded", loadId, backend: model!.backend, loadMs: Math.round(performance.now() - t), backends: choices });
 }
 
 function start(id: number, options: DecodeOptions) {
@@ -121,7 +121,7 @@ async function stop(id: number) {
 port.on("message", ({ data: msg }) => {
   switch (msg.type) {
     case "load":
-      load(msg.modelPath, msg.backend).catch((err) => send({ type: "load-error", message: errMsg(err) }));
+      load(msg.loadId, msg.modelPath, msg.backend).catch((err) => send({ type: "load-error", loadId: msg.loadId, message: errMsg(err) }));
       break;
     case "start":
       start(msg.id, msg.options);

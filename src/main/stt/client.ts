@@ -18,6 +18,13 @@ interface Pending<T> {
 const STOP_TIMEOUT_MS = 30_000;
 const BACKENDS_TIMEOUT_MS = 10_000;
 
+/** Rejects a load() that a newer load() replaced. */
+export class SupersededError extends Error {
+  constructor() {
+    super("Superseded by another load");
+  }
+}
+
 export function defaultWorkerPath(): string {
   return fileURLToPath(new URL("./stt-worker.js", import.meta.url));
 }
@@ -33,7 +40,8 @@ export class SttClient extends EventEmitter {
   private modelPath: string | null = null;
   private modelBackend: ComputeBackend = "auto";
   private backendChoices: BackendChoice[] = [];
-  private loading: Pending<{ backend: string; loadMs: number }> | null = null;
+  private loading: (Pending<{ backend: string; loadMs: number }> & { id: number }) | null = null;
+  private nextLoadId = 1;
   private stops = new Map<number, Pending<FinalResult>>();
   private disposed = false;
 
@@ -63,10 +71,11 @@ export class SttClient extends EventEmitter {
   load(modelPath: string, backend: ComputeBackend): Promise<{ backend: string; loadMs: number }> {
     this.modelPath = modelPath;
     this.modelBackend = backend;
-    this.loading?.reject(new Error("Superseded by another load"));
+    this.loading?.reject(new SupersededError());
     return new Promise((resolve, reject) => {
-      this.loading = { resolve, reject };
-      this.send({ type: "load", modelPath, backend });
+      const id = this.nextLoadId++;
+      this.loading = { resolve, reject, id };
+      this.send({ type: "load", loadId: id, modelPath, backend });
     });
   }
 
@@ -122,8 +131,9 @@ export class SttClient extends EventEmitter {
     if (this.modelPath && !this.loading) {
       const path = this.modelPath;
       const backend = this.modelBackend;
-      this.loading = { resolve: () => {}, reject: () => {} };
-      proc.postMessage({ type: "load", modelPath: path, backend } satisfies ToWorker);
+      const id = this.nextLoadId++;
+      this.loading = { resolve: () => {}, reject: () => {}, id };
+      proc.postMessage({ type: "load", loadId: id, modelPath: path, backend } satisfies ToWorker);
     }
     return proc;
   }
@@ -135,11 +145,14 @@ export class SttClient extends EventEmitter {
         break;
       case "loaded":
         this.setBackends(msg.backends);
-        this.loading?.resolve({ backend: msg.backend, loadMs: msg.loadMs });
+        // A superseded load still finishes in the worker; only the latest counts.
+        if (this.loading?.id !== msg.loadId) break;
+        this.loading.resolve({ backend: msg.backend, loadMs: msg.loadMs });
         this.loading = null;
         break;
       case "load-error":
-        this.loading?.reject(new Error(msg.message));
+        if (this.loading?.id !== msg.loadId) break;
+        this.loading.reject(new Error(msg.message));
         this.loading = null;
         break;
       case "partial":
