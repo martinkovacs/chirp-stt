@@ -7,6 +7,7 @@ import {
   LANGUAGES,
 } from "../shared/types.ts";
 import type {
+  ComputeBackend,
   HotkeyBackend,
   OutputMode,
   PasteCombo,
@@ -14,6 +15,7 @@ import type {
 } from "../shared/types.ts";
 
 const HOTKEY_BACKENDS: readonly HotkeyBackend[] = ["auto", "evdev", "portal", "uiohook"];
+const COMPUTE_BACKENDS: readonly ComputeBackend[] = ["auto", "vulkan", "cuda", "rocm", "metal", "cpu"];
 const OUTPUT_MODES: readonly OutputMode[] = ["paste", "clipboard"];
 const PASTE_COMBOS: readonly PasteCombo[] = ["ctrl+v", "ctrl+shift+v", "shift+insert"];
 
@@ -30,6 +32,9 @@ export function sanitize(raw: unknown): Settings {
   }
   if (typeof src.hotkeyBackend === "string" && (HOTKEY_BACKENDS as readonly string[]).includes(src.hotkeyBackend)) {
     s.hotkeyBackend = src.hotkeyBackend as HotkeyBackend;
+  }
+  if (typeof src.computeBackend === "string" && (COMPUTE_BACKENDS as readonly string[]).includes(src.computeBackend)) {
+    s.computeBackend = src.computeBackend as ComputeBackend;
   }
   if (typeof src.evdevKey === "string" && src.evdevKey !== "") s.evdevKey = src.evdevKey;
   if (typeof src.uiohookKey === "string" && src.uiohookKey !== "") s.uiohookKey = src.uiohookKey;

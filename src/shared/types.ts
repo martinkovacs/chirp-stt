@@ -12,12 +12,23 @@ export const LANGUAGES: Record<string, string> = {
 };
 
 export type HotkeyBackend = "auto" | "evdev" | "portal" | "uiohook";
+export type ComputeBackend = "auto" | "vulkan" | "cuda" | "rocm" | "metal" | "cpu";
 export type OutputMode = "paste" | "clipboard";
 export type PasteCombo = "ctrl+v" | "ctrl+shift+v" | "shift+insert";
+
+/** One available compute backend as shown in the settings UI, best first. */
+export interface BackendChoice {
+  backend: Exclude<ComputeBackend, "auto">;
+  label: string;
+  /** Human device description, e.g. "NVIDIA GeForce RTX 5060 Ti", or "" if unknown. */
+  device: string;
+}
 
 export interface Settings {
   /** Absolute path to the GGUF model. Empty = default location in userData/models. */
   modelPath: string;
+  /** Compute backend for inference. "auto" (never picked by the user) = best available. */
+  computeBackend: ComputeBackend;
   /** Spoken language (Canary has no auto-detect). */
   sourceLanguage: string;
   /** Output language. Equal to sourceLanguage = plain transcription. */
@@ -42,6 +53,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   modelPath: "",
+  computeBackend: "auto",
   sourceLanguage: "hu",
   targetLanguage: "en",
   hotkeyBackend: "auto",
@@ -78,15 +90,16 @@ export interface DecodeOptions {
 }
 
 export type ToWorker =
-  | { type: "load"; modelPath: string }
+  | { type: "load"; loadId: number; modelPath: string; backend: ComputeBackend }
   | { type: "start"; id: number; options: DecodeOptions }
   | { type: "audio"; id: number; pcm: Float32Array }
   | { type: "stop"; id: number }
   | { type: "cancel"; id: number };
 
 export type FromWorker =
-  | { type: "loaded"; backend: string; loadMs: number }
-  | { type: "load-error"; message: string }
+  | { type: "loaded"; loadId: number; backend: string; loadMs: number; backends: BackendChoice[] }
+  | { type: "backends"; backends: BackendChoice[] }
+  | { type: "load-error"; loadId: number; message: string }
   | { type: "partial"; id: number; committed: string; tentative: string }
   | { type: "final"; id: number; text: string; audioMs: number; decodeMs: number }
   | { type: "error"; id?: number; message: string };
@@ -96,7 +109,7 @@ export type FromWorker =
 // ---------------------------------------------------------------------------
 
 export type AppStatus =
-  | { state: "no-model" }
+  | { state: "no-model"; model: { label: string; size: number } }
   | { state: "downloading"; received: number; total: number }
   | { state: "loading" }
   | { state: "ready"; backend: string }
@@ -113,6 +126,7 @@ export const IPC = {
   // renderer -> main
   getSettings: "settings:get",
   setSettings: "settings:set",
+  getBackends: "backends:get",
   getStatus: "status:get",
   getHistory: "history:get",
   deleteHistory: "history:delete",
@@ -130,4 +144,5 @@ export const IPC = {
   captureStart: "audio:start", // (micDeviceId: string)
   captureStop: "audio:stop",
   historyChanged: "history:changed",
+  backendsChanged: "backends:changed",
 } as const;

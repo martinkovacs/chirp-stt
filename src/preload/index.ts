@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { IPC } from "../shared/types.ts";
-import type { AppStatus, HistoryEntry, OverlayState, Settings } from "../shared/types.ts";
+import type { AppStatus, BackendChoice, HistoryEntry, OverlayState, Settings } from "../shared/types.ts";
 
 export interface HotkeyInfo {
   kind: string;
@@ -18,6 +18,7 @@ const api = {
   platform: process.platform,
   getSettings: (): Promise<Settings> => ipcRenderer.invoke(IPC.getSettings),
   setSettings: (patch: Partial<Settings>): Promise<Settings> => ipcRenderer.invoke(IPC.setSettings, patch),
+  getBackends: (): Promise<BackendChoice[]> => ipcRenderer.invoke(IPC.getBackends),
   getStatus: (): Promise<AppStatus> => ipcRenderer.invoke(IPC.getStatus),
   getHistory: (): Promise<HistoryEntry[]> => ipcRenderer.invoke(IPC.getHistory),
   deleteHistory: (at: number): Promise<boolean> => ipcRenderer.invoke(IPC.deleteHistory, at),
@@ -32,6 +33,7 @@ const api = {
   onHistory: (cb: (h: HistoryEntry[]) => void) => on<[HistoryEntry[]]>(IPC.historyChanged, cb),
   onOverlay: (cb: (s: OverlayState) => void) => on<[OverlayState]>(IPC.overlay, cb),
   onHotkeyInfo: (cb: (h: HotkeyInfo) => void) => on<[HotkeyInfo]>(IPC.hotkeyInfo, cb),
+  onBackends: (cb: (b: BackendChoice[]) => void) => on<[BackendChoice[]]>(IPC.backendsChanged, cb),
 
   // Audio capture lives in the overlay renderer; main tells it when to run.
   onCaptureStart: (cb: (micDeviceId: string) => void) => on<[string]>(IPC.captureStart, cb),
