@@ -5,10 +5,13 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { after, before, describe, it } from "node:test";
 import {
+  CPU_MODEL,
+  CPU_MAX_MODEL_BYTES,
   DEFAULT_MODEL,
   defaultModelPath,
   downloadModel,
   modelExists,
+  modelFor,
   removePart,
   resolveModelPath,
 } from "../src/main/model-manager.ts";
@@ -93,11 +96,44 @@ function sleep(ms: number): Promise<void> {
 describe("model-manager helpers", () => {
   it("defaultModelPath joins userData/models with the default file", () => {
     assert.equal(defaultModelPath("/u"), path.join("/u", "models", DEFAULT_MODEL.file));
+    assert.equal(defaultModelPath("/u", CPU_MODEL), path.join("/u", "models", CPU_MODEL.file));
+  });
+
+  it("modelFor picks the CPU model only on CPU", () => {
+    assert.equal(modelFor(false), DEFAULT_MODEL);
+    assert.equal(modelFor(true), CPU_MODEL);
   });
 
   it("resolveModelPath honors settings.modelPath or the default", () => {
     assert.equal(resolveModelPath({ ...DEFAULT_SETTINGS, modelPath: "" }, "/u"), defaultModelPath("/u"));
     assert.equal(resolveModelPath({ ...DEFAULT_SETTINGS, modelPath: "/custom/m.gguf" }, "/u"), "/custom/m.gguf");
+  });
+
+  it("resolveModelPath on CPU ignores a missing or oversized custom path", () => {
+    const missing = path.join(tmp, "missing-custom.gguf");
+    assert.equal(
+      resolveModelPath({ ...DEFAULT_SETTINGS, modelPath: missing }, "/u", true),
+      defaultModelPath("/u", CPU_MODEL),
+    );
+    const big = path.join(tmp, "big-custom.gguf");
+    fs.closeSync(fs.openSync(big, "w"));
+    fs.truncateSync(big, CPU_MAX_MODEL_BYTES + 1);
+    assert.equal(
+      resolveModelPath({ ...DEFAULT_SETTINGS, modelPath: big }, "/u", true),
+      defaultModelPath("/u", CPU_MODEL),
+    );
+    const small = path.join(tmp, "small-custom.gguf");
+    fs.closeSync(fs.openSync(small, "w"));
+    fs.truncateSync(small, CPU_MAX_MODEL_BYTES);
+    assert.equal(
+      resolveModelPath({ ...DEFAULT_SETTINGS, modelPath: small }, "/u", true),
+      small,
+    );
+    // Without cpu, the custom path is kept as today.
+    assert.equal(
+      resolveModelPath({ ...DEFAULT_SETTINGS, modelPath: big }, "/u"),
+      big,
+    );
   });
 
   it("modelExists checks file, existence and size > 1 MB", () => {

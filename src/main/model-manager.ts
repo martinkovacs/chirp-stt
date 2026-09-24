@@ -6,18 +6,50 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { Settings } from "../shared/types.ts";
 
-export const DEFAULT_MODEL = {
+export interface ModelSpec {
+  file: string;
+  url: string;
+  size: number;
+  label: string;
+}
+
+export const DEFAULT_MODEL: ModelSpec = {
   file: "canary-1b-v2-Q8_0.gguf",
   url: "https://huggingface.co/handy-computer/canary-1b-v2-gguf/resolve/main/canary-1b-v2-Q8_0.gguf",
   size: 1_144_290_016,
-} as const;
+  label: "Q8_0",
+};
 
-export function defaultModelPath(userDataDir: string): string {
-  return path.join(userDataDir, "models", DEFAULT_MODEL.file);
+export const CPU_MODEL: ModelSpec = {
+  file: "canary-1b-v2-Q4_K_M.gguf",
+  url: "https://huggingface.co/handy-computer/canary-1b-v2-gguf/resolve/main/canary-1b-v2-Q4_K_M.gguf",
+  size: 735_476_448,
+  label: "Q4_K_M",
+};
+
+// A user-picked model larger than this is not used on CPU (Electron's
+// PartitionAlloc traps on aligned allocations over 1 GiB).
+export const CPU_MAX_MODEL_BYTES = 900 * 1e6;
+
+export function modelFor(cpu: boolean): ModelSpec {
+  return cpu ? CPU_MODEL : DEFAULT_MODEL;
 }
 
-export function resolveModelPath(settings: Settings, userDataDir: string): string {
-  return settings.modelPath !== "" ? settings.modelPath : defaultModelPath(userDataDir);
+export function defaultModelPath(userDataDir: string, model: ModelSpec = DEFAULT_MODEL): string {
+  return path.join(userDataDir, "models", model.file);
+}
+
+export function resolveModelPath(settings: Settings, userDataDir: string, cpu = false): string {
+  if (settings.modelPath !== "") {
+    // On CPU a user model only counts if it exists and fits; otherwise default.
+    if (!cpu) return settings.modelPath;
+    try {
+      if (fs.statSync(settings.modelPath).size <= CPU_MAX_MODEL_BYTES) return settings.modelPath;
+    } catch {
+      /* fall through to the default */
+    }
+  }
+  return defaultModelPath(userDataDir, modelFor(cpu));
 }
 
 export function modelExists(p: string): boolean {

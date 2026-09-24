@@ -4,7 +4,7 @@ import "@fontsource/space-grotesk/500.css";
 import "@fontsource/jetbrains-mono/500.css";
 import "./style.css";
 import { LANGUAGES } from "../../shared/types.ts";
-import type { AppStatus, HistoryEntry, Settings } from "../../shared/types.ts";
+import type { AppStatus, BackendChoice, HistoryEntry, Settings } from "../../shared/types.ts";
 import type { HotkeyInfo } from "../../preload/index.ts";
 import { icon, langPair } from "../icons.ts";
 
@@ -77,6 +77,19 @@ function render(s: Settings) {
   $<HTMLInputElement>("space").checked = s.appendSpace;
   $<HTMLInputElement>("login").checked = s.launchAtLogin;
   $<HTMLSelectElement>("mic").value = s.micDeviceId;
+  renderBackends();
+}
+
+// ---- compute backend ----
+let backends: BackendChoice[] = [];
+function renderBackends(list = backends) {
+  backends = list;
+  const select = $<HTMLSelectElement>("compute-backend");
+  select.replaceChildren(...list.map((b) => new Option([b.label, b.device].filter(Boolean).join(" · "), b.backend)));
+  // Until the user picks one, show the best available backend (listed first).
+  const saved = settings?.computeBackend;
+  select.value = list.some((b) => b.backend === saved) ? saved : (list[0]?.backend ?? "");
+  select.disabled = list.length === 0;
 }
 
 // ---- bindings ----
@@ -96,6 +109,7 @@ bindSelect("evdev-key", "evdevKey");
 bindSelect("uiohook-key", "uiohookKey");
 bindSelect("paste-combo", "pasteCombo");
 bindSelect("mic", "micDeviceId");
+bindSelect("compute-backend", "computeBackend");
 bindCheck("chord", "cancelOnChord");
 bindCheck("space", "appendSpace");
 bindCheck("login", "launchAtLogin");
@@ -127,9 +141,14 @@ function renderStatus(s: AppStatus) {
   $("progress").hidden = s.state !== "downloading";
   $("progress-label").textContent = "";
   switch (s.state) {
-    case "no-model":
+    case "no-model": {
       label.textContent = "model missing";
+      const size = s.model.size >= 1e9 ? `${(s.model.size / 1e9).toFixed(2)} GB` : `${mb(s.model.size)} MB`;
+      $("model-lede").textContent =
+        `Canary-1B-v2 · ${s.model.label} · ${size} · runs fully offline` +
+        ($<HTMLSelectElement>("compute-backend").value === "cpu" ? ". The CPU backend needs this smaller model." : "");
       break;
+    }
     case "downloading": {
       const pct = s.total ? (100 * s.received) / s.total : 0;
       label.textContent = `downloading ${pct.toFixed(0)}%`;
@@ -240,6 +259,7 @@ async function loadMics() {
 
 async function init() {
   await loadMics();
+  backends = await chirp.getBackends();
   render(await chirp.getSettings());
   renderStatus(await chirp.getStatus());
   renderHotkey(await chirp.getHotkeyInfo());
@@ -248,6 +268,7 @@ async function init() {
   chirp.onStatus(renderStatus);
   chirp.onHotkeyInfo(renderHotkey);
   chirp.onHistory(renderHistory);
+  chirp.onBackends(renderBackends);
   navigator.mediaDevices.addEventListener("devicechange", () => void loadMics());
 }
 void init();

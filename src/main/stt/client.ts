@@ -1,7 +1,7 @@
 import { utilityProcess, type UtilityProcess } from "electron";
 import { EventEmitter } from "node:events";
 import { fileURLToPath } from "node:url";
-import type { DecodeOptions, FromWorker, ToWorker } from "../../shared/types.ts";
+import type { BackendChoice, ComputeBackend, DecodeOptions, FromWorker, ToWorker } from "../../shared/types.ts";
 
 export interface FinalResult {
   text: string;
@@ -16,6 +16,7 @@ interface Pending<T> {
 }
 
 const STOP_TIMEOUT_MS = 30_000;
+const BACKENDS_TIMEOUT_MS = 10_000;
 
 export function defaultWorkerPath(): string {
   return fileURLToPath(new URL("./stt-worker.js", import.meta.url));
@@ -30,6 +31,8 @@ export class SttClient extends EventEmitter {
   private proc: UtilityProcess | null = null;
   private nextId = 1;
   private modelPath: string | null = null;
+  private modelBackend: ComputeBackend = "auto";
+  private backendChoices: BackendChoice[] = [];
   private loading: Pending<{ backend: string; loadMs: number }> | null = null;
   private stops = new Map<number, Pending<FinalResult>>();
   private disposed = false;
@@ -39,12 +42,31 @@ export class SttClient extends EventEmitter {
     this.workerPath = workerPath;
   }
 
-  load(modelPath: string): Promise<{ backend: string; loadMs: number }> {
+  get backends(): BackendChoice[] {
+    return this.backendChoices;
+  }
+
+  /** Cached backend list, or the one the worker sends at startup. */
+  backendList(): Promise<BackendChoice[]> {
+    if (this.backendChoices.length) return Promise.resolve(this.backendChoices);
+    // Spawning the worker (without a load) makes it emit "backends" once.
+    this.ensure();
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(this.backendChoices), BACKENDS_TIMEOUT_MS);
+      this.once("backends", (list: BackendChoice[]) => {
+        clearTimeout(timer);
+        resolve(list);
+      });
+    });
+  }
+
+  load(modelPath: string, backend: ComputeBackend): Promise<{ backend: string; loadMs: number }> {
     this.modelPath = modelPath;
+    this.modelBackend = backend;
     this.loading?.reject(new Error("Superseded by another load"));
     return new Promise((resolve, reject) => {
       this.loading = { resolve, reject };
-      this.send({ type: "load", modelPath });
+      this.send({ type: "load", modelPath, backend });
     });
   }
 
@@ -99,15 +121,20 @@ export class SttClient extends EventEmitter {
     // messages (start/audio) find it.
     if (this.modelPath && !this.loading) {
       const path = this.modelPath;
+      const backend = this.modelBackend;
       this.loading = { resolve: () => {}, reject: () => {} };
-      proc.postMessage({ type: "load", modelPath: path } satisfies ToWorker);
+      proc.postMessage({ type: "load", modelPath: path, backend } satisfies ToWorker);
     }
     return proc;
   }
 
   private onMessage(msg: FromWorker) {
     switch (msg.type) {
+      case "backends":
+        this.setBackends(msg.backends);
+        break;
       case "loaded":
+        this.setBackends(msg.backends);
         this.loading?.resolve({ backend: msg.backend, loadMs: msg.loadMs });
         this.loading = null;
         break;
@@ -132,6 +159,12 @@ export class SttClient extends EventEmitter {
         break;
       }
     }
+  }
+
+  private setBackends(backends: BackendChoice[]) {
+    if (JSON.stringify(backends) === JSON.stringify(this.backendChoices)) return;
+    this.backendChoices = backends;
+    this.emit("backends", backends);
   }
 
   private onExit(proc: UtilityProcess, code: number) {
