@@ -28,6 +28,10 @@ function setText(committed: string, tentative: string) {
   committedEl.textContent = committed ? committed + (tentative ? " " : "") : "";
   tentativeEl.textContent = tentative;
   hintEl.textContent = committed || tentative ? "" : "listening…";
+  fadeOverflow();
+}
+
+function fadeOverflow() {
   wrapEl.classList.toggle("overflow", textEl.offsetHeight > wrapEl.clientHeight + 1);
 }
 
@@ -51,6 +55,7 @@ chirp.onOverlay((s: OverlayState) => {
       setText("", "");
       hintEl.textContent = "";
       committedEl.textContent = s.message;
+      fadeOverflow();
       statusEl.textContent = "error";
       break;
     case "hidden":
