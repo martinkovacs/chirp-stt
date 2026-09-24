@@ -1,7 +1,8 @@
 // Electron utilityProcess entry: owns the transcribe.cpp model so inference
 // never blocks the main process.
-import { TranscribeModel, getAvailableBackends, backendAvailable } from "transcribe-cpp";
+import { TranscribeModel, artifactDir, getAvailableBackends, backendAvailable } from "transcribe-cpp";
 import { statSync } from "node:fs";
+import { join } from "node:path";
 import { Dictation } from "./dictation.ts";
 import type { BackendChoice, ComputeBackend, DecodeOptions, FromWorker, ToWorker } from "../../shared/types.ts";
 
@@ -10,6 +11,23 @@ interface ParentPort {
   postMessage(message: FromWorker): void;
 }
 const port = (process as unknown as { parentPort: ParentPort }).parentPort;
+
+// Packaged builds unpack the native libraries to app.asar.unpacked, but
+// transcribe-cpp resolves them inside app.asar, which dlopen can't read.
+// The library loads lazily, so pointing TRANSCRIBE_LIBRARY there in time works.
+if (!process.env.TRANSCRIBE_LIBRARY) {
+  try {
+    const dir = artifactDir();
+    const unpacked = dir.replace(/app\.asar([\\/])/, "app.asar.unpacked$1");
+    if (unpacked !== dir) {
+      const file =
+        process.platform === "win32" ? "transcribe.dll" : process.platform === "darwin" ? "libtranscribe.dylib" : "libtranscribe.so";
+      process.env.TRANSCRIBE_LIBRARY = join(unpacked, file);
+    }
+  } catch {
+    /* no native package: loading reports the error */
+  }
+}
 
 let model: TranscribeModel | null = null;
 let active: { id: number; dictation: Dictation } | null = null;
