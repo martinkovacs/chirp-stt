@@ -20,6 +20,7 @@ permissions:
 
 jobs:
   build:
+    name: build (${{ matrix.name }})
     strategy:
       fail-fast: false
       matrix:
@@ -55,8 +56,9 @@ jobs:
         shell: bash
         run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
 
+      # uiohook's X11 code needs a display, even just to load.
       - if: matrix.name == 'linux'
-        run: npm run typecheck && npm test
+        run: npm run typecheck && xvfb-run -a npm test
 
       - run: npm run build
 
