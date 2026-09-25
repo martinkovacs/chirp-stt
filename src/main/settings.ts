@@ -3,6 +3,7 @@ import { EventEmitter } from "node:events";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
+  canTranslate,
   DEFAULT_SETTINGS,
   LANGUAGES,
 } from "../shared/types.ts";
@@ -30,6 +31,9 @@ export function sanitize(raw: unknown): Settings {
   if (typeof src.targetLanguage === "string" && src.targetLanguage in LANGUAGES) {
     s.targetLanguage = src.targetLanguage;
   }
+  // An unsupported pair (e.g. a source change under a non-English target)
+  // falls back to translating into English.
+  if (!canTranslate(s.sourceLanguage, s.targetLanguage)) s.targetLanguage = "en";
   if (typeof src.hotkeyBackend === "string" && (HOTKEY_BACKENDS as readonly string[]).includes(src.hotkeyBackend)) {
     s.hotkeyBackend = src.hotkeyBackend as HotkeyBackend;
   }

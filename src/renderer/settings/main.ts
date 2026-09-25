@@ -3,7 +3,7 @@ import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/space-grotesk/500.css";
 import "@fontsource/jetbrains-mono/500.css";
 import "./style.css";
-import { LANGUAGES } from "../../shared/types.ts";
+import { canTranslate, LANGUAGES } from "../../shared/types.ts";
 import type { AppStatus, BackendChoice, HistoryEntry, Settings } from "../../shared/types.ts";
 import type { HotkeyInfo } from "../../preload/index.ts";
 import { icon, langPair } from "../icons.ts";
@@ -38,7 +38,6 @@ function fill(select: HTMLSelectElement, entries: [string, string][]) {
 
 const langs = Object.entries(LANGUAGES).sort((a, b) => a[1].localeCompare(b[1]));
 fill($<HTMLSelectElement>("source"), langs);
-fill($<HTMLSelectElement>("target"), langs);
 fill($<HTMLSelectElement>("evdev-key"), EVDEV_CHOICES);
 fill($<HTMLSelectElement>("uiohook-key"), UIOHOOK_CHOICES);
 
@@ -51,11 +50,16 @@ function save(patch: Partial<Settings>) {
 function render(s: Settings) {
   settings = s;
   $<HTMLSelectElement>("source").value = s.sourceLanguage;
+  // Canary only translates to or from English; offer just those targets.
+  fill($<HTMLSelectElement>("target"), langs.filter(([code]) => canTranslate(s.sourceLanguage, code)));
   $<HTMLSelectElement>("target").value = s.targetLanguage;
   $("mode-note").textContent =
     s.sourceLanguage === s.targetLanguage
       ? `Plain transcription in ${LANGUAGES[s.sourceLanguage]}.`
       : `You speak ${LANGUAGES[s.sourceLanguage]}, Chirp writes ${LANGUAGES[s.targetLanguage]}.`;
+  if (s.sourceLanguage !== "en") {
+    $("mode-note").textContent += ` Translation works only into English; speak English to write other languages.`;
+  }
 
   $<HTMLSelectElement>("hotkey-backend").value = s.hotkeyBackend;
   $<HTMLSelectElement>("evdev-key").value = s.evdevKey;

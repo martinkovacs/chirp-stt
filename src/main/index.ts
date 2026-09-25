@@ -3,7 +3,7 @@ import type { MenuItemConstructorOptions } from "electron";
 import { fileURLToPath } from "node:url";
 import { statSync } from "node:fs";
 import { join } from "node:path";
-import { IPC, LANGUAGES } from "../shared/types.ts";
+import { canTranslate, IPC, LANGUAGES } from "../shared/types.ts";
 import type { AppStatus, ComputeBackend, DecodeOptions, OverlayState, Settings } from "../shared/types.ts";
 import { SettingsStore } from "./settings.ts";
 import { HistoryStore } from "./history.ts";
@@ -196,6 +196,7 @@ function statusLine(): string {
 function langSubmenu(key: "sourceLanguage" | "targetLanguage"): MenuItemConstructorOptions[] {
   const s = settingsStore.get();
   return Object.entries(LANGUAGES)
+    .filter(([code]) => key === "sourceLanguage" || canTranslate(s.sourceLanguage, code))
     .sort((a, b) => a[1].localeCompare(b[1]))
     .map(([code, name]) => ({
       label: name,
