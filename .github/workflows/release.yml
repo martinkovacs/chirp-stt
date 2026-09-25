@@ -22,6 +22,12 @@ on:
 permissions:
   contents: write
 
+# Pushes to main queue up (never cancelled), so a second run's tag check sees
+# the tag the first one published. Newer PR pushes cancel older PR builds.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # Decides whether this run publishes, and under which tag.
   version:
@@ -40,12 +46,16 @@ jobs:
           elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
             tag="v$(node -p "require('./package.json').version")"
             echo "tag=$tag" >> "$GITHUB_OUTPUT"
-            if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
-              echo "$tag already released; nothing to do."
-              echo "release=false" >> "$GITHUB_OUTPUT"
-            else
-              echo "release=true" >> "$GITHUB_OUTPUT"
-            fi
+            # --exit-code: 0 = tag exists, 2 = confirmed missing; anything
+            # else (network, auth) fails the job rather than publishing.
+            rc=0
+            git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null || rc=$?
+            case $rc in
+              0) echo "$tag already released; nothing to do."
+                 echo "release=false" >> "$GITHUB_OUTPUT" ;;
+              2) echo "release=true" >> "$GITHUB_OUTPUT" ;;
+              *) echo "::error::Tag lookup for $tag failed (git exit $rc)"; exit 1 ;;
+            esac
           else
             echo "release=false" >> "$GITHUB_OUTPUT"
           fi
