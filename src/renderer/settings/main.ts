@@ -47,12 +47,18 @@ function save(patch: Partial<Settings>) {
   void chirp.setSettings(patch).then(render);
 }
 
+/** Canary only translates to or from English; offer just those targets. */
+function renderTargets(source: string, target: string) {
+  const select = $<HTMLSelectElement>("target");
+  fill(select, langs.filter(([code]) => canTranslate(source, code)));
+  // Same fallback as sanitize() in main.
+  select.value = canTranslate(source, target) ? target : "en";
+}
+
 function render(s: Settings) {
   settings = s;
   $<HTMLSelectElement>("source").value = s.sourceLanguage;
-  // Canary only translates to or from English; offer just those targets.
-  fill($<HTMLSelectElement>("target"), langs.filter(([code]) => canTranslate(s.sourceLanguage, code)));
-  $<HTMLSelectElement>("target").value = s.targetLanguage;
+  renderTargets(s.sourceLanguage, s.targetLanguage);
   $("mode-note").textContent =
     s.sourceLanguage === s.targetLanguage
       ? `Plain transcription in ${LANGUAGES[s.sourceLanguage]}.`
@@ -106,7 +112,13 @@ const bindCheck = (id: string, key: keyof Settings) =>
     save({ [key]: (e.target as HTMLInputElement).checked } as Partial<Settings>),
   );
 
-bindSelect("source", "sourceLanguage");
+// Narrow the targets at once, so an unsupported one can't be picked while
+// the save is still in flight.
+$<HTMLSelectElement>("source").addEventListener("change", (e) => {
+  const source = (e.target as HTMLSelectElement).value;
+  renderTargets(source, settings.targetLanguage);
+  save({ sourceLanguage: source });
+});
 bindSelect("target", "targetLanguage");
 bindSelect("hotkey-backend", "hotkeyBackend");
 bindSelect("evdev-key", "evdevKey");
