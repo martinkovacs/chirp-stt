@@ -58,8 +58,10 @@ function nodeProc(workerPath: string, nodePath: string): WorkerProc {
   delete env.ELECTRON_RUN_AS_NODE;
   const child = fork(workerPath, [], {
     execPath: nodePath,
-    // "advanced" keeps Float32Array audio intact across the channel.
-    serialization: "advanced",
+    // JSON, not "advanced": Electron's V8 writes a newer structured-clone
+    // format than the child's Node can read ("Unable to deserialize cloned
+    // data"). Audio is base64-encoded in post() instead.
+    serialization: "json",
     stdio: "inherit",
     env,
     execArgv: [],
@@ -95,7 +97,7 @@ function nodeProc(workerPath: string, nodePath: string): WorkerProc {
   return {
     post: (msg) => {
       try {
-        child.send(msg);
+        child.send(msg.type === "audio" ? { ...msg, pcm: encodePcm(msg.pcm) } : msg);
       } catch {
         /* channel already closed; the crash handling respawns */
       }
@@ -104,6 +106,11 @@ function nodeProc(workerPath: string, nodePath: string): WorkerProc {
     onMessage: (cb) => (onMessage = cb),
     onExit: (cb) => (onEnd = cb),
   };
+}
+
+/** Float32Array PCM as base64 of its raw bytes, for the JSON IPC channel. */
+function encodePcm(pcm: Float32Array): string {
+  return Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength).toString("base64");
 }
 
 /** Plain Node.js cannot read inside the asar archive; packaging unpacks it. */

@@ -9,8 +9,9 @@ import type { BackendChoice, ComputeBackend, DecodeOptions, FromWorker, ToWorker
 
 // Transport: inside Electron the utilityProcess exposes parentPort, whose
 // messages arrive wrapped ({ data }) and go out via postMessage. Under a
-// Node.js child_process fork (serialization "advanced") messages come over
-// the process IPC channel and go out via process.send.
+// Node.js child_process fork (serialization "json") messages come over
+// the process IPC channel and go out via process.send; audio PCM arrives
+// base64-encoded there (see decodePcm).
 interface ParentPort {
   on(event: "message", listener: (e: { data: ToWorker }) => void): void;
   postMessage(message: FromWorker): void;
@@ -145,12 +146,23 @@ async function stop(id: number) {
   }
 }
 
+/** Inverse of client.ts encodePcm: base64 of raw float32 bytes. */
+function decodePcm(b64: string): Float32Array {
+  const bytes = Buffer.from(b64, "base64");
+  // Copy into a fresh, 4-byte-aligned buffer; Buffer's pool offset may not be.
+  const pcm = new Float32Array(bytes.byteLength / 4);
+  new Uint8Array(pcm.buffer).set(bytes);
+  return pcm;
+}
+
 // Message inlets: parentPort inside Electron, the IPC channel under Node.
 function onMessage(handler: (msg: ToWorker) => void) {
   if (electronPort) {
     electronPort.on("message", ({ data: msg }) => handler(msg));
   } else {
-    process.on("message", (msg: ToWorker) => handler(msg));
+    process.on("message", (msg: ToWorker) =>
+      handler(msg.type === "audio" ? { ...msg, pcm: decodePcm(msg.pcm as unknown as string) } : msg),
+    );
     // Node child (child_process fork): exit when the IPC channel drops so
     // the worker never outlives the app.
     process.on("disconnect", () => process.exit(0));

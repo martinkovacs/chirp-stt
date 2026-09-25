@@ -6,8 +6,8 @@ import { SAMPLE_RATE } from "../src/shared/types.ts";
 import type { FromWorker, ToWorker } from "../src/shared/types.ts";
 
 // Forks the worker SOURCE, untranspiled, the way client.ts runs it under a
-// plain Node.js binary: advanced serialization so Float32Array audio survives
-// the channel. No model is needed; silence is never decoded.
+// plain Node.js binary: JSON serialization with base64 audio, so the
+// Float32Array must survive that encoding. No model is needed; silence is never decoded.
 const WORKER = fileURLToPath(new URL("../src/main/stt/worker.ts", import.meta.url));
 const MESSAGE_TIMEOUT_MS = 15_000;
 const EXIT_TIMEOUT_MS = 5_000;
@@ -18,7 +18,7 @@ let stderr = "";
 function spawnWorker(): ChildProcess {
   const child = fork(WORKER, [], {
     execArgv: ["--experimental-strip-types"],
-    serialization: "advanced",
+    serialization: "json",
     // fork needs an explicit "ipc" fd once stdio is given at all.
     stdio: ["ignore", "ignore", "pipe", "ipc"],
   });
@@ -33,7 +33,10 @@ function hint(): string {
 }
 
 function send(child: ChildProcess, msg: ToWorker): void {
-  child.send(msg);
+  if (msg.type === "audio") {
+    const { buffer, byteOffset, byteLength } = msg.pcm;
+    child.send({ ...msg, pcm: Buffer.from(buffer, byteOffset, byteLength).toString("base64") });
+  } else child.send(msg);
 }
 
 /** First message of `type`, or a rejection on timeout / crash / early exit. */
