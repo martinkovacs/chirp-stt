@@ -11,6 +11,15 @@ export const LANGUAGES: Record<string, string> = {
   sl: "Slovenian", es: "Spanish", sv: "Swedish", ru: "Russian", uk: "Ukrainian",
 };
 
+/**
+ * Canary translates only to or from English (X→en, en→X); X→Y between two
+ * other languages fails with "unsupported language". Same language = plain
+ * transcription.
+ */
+export function canTranslate(source: string, target: string): boolean {
+  return source === target || source === "en" || target === "en";
+}
+
 export type HotkeyBackend = "auto" | "evdev" | "portal" | "uiohook";
 export type ComputeBackend = "auto" | "vulkan" | "cuda" | "rocm" | "metal" | "cpu";
 export type OutputMode = "paste" | "clipboard";

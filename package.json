@@ -1,7 +1,7 @@
 {
   "name": "chirp-stt",
   "productName": "Chirp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Hold-to-talk speech-to-text with translation, powered by transcribe.cpp + Canary-1B-v2",
   "main": "out/main/index.js",
   "type": "module",

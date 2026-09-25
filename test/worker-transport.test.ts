@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { fork, type ChildProcess } from "node:child_process";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
+import { decodePcm, encodePcm } from "../src/main/stt/pcm.ts";
 import { SAMPLE_RATE } from "../src/shared/types.ts";
 import type { FromWorker, ToWorker } from "../src/shared/types.ts";
 
 // Forks the worker SOURCE, untranspiled, the way client.ts runs it under a
-// plain Node.js binary: advanced serialization so Float32Array audio survives
-// the channel. No model is needed; silence is never decoded.
+// plain Node.js binary: JSON serialization with base64 audio, so the
+// Float32Array must survive that encoding. No model is needed; silence is never decoded.
 const WORKER = fileURLToPath(new URL("../src/main/stt/worker.ts", import.meta.url));
 const MESSAGE_TIMEOUT_MS = 15_000;
 const EXIT_TIMEOUT_MS = 5_000;
@@ -18,7 +19,7 @@ let stderr = "";
 function spawnWorker(): ChildProcess {
   const child = fork(WORKER, [], {
     execArgv: ["--experimental-strip-types"],
-    serialization: "advanced",
+    serialization: "json",
     // fork needs an explicit "ipc" fd once stdio is given at all.
     stdio: ["ignore", "ignore", "pipe", "ipc"],
   });
@@ -32,8 +33,9 @@ function hint(): string {
   return out ? `; worker stderr:\n${out}` : "";
 }
 
+/** Mirrors client.ts nodeProc post(), with the same production encoder. */
 function send(child: ChildProcess, msg: ToWorker): void {
-  child.send(msg);
+  child.send(msg.type === "audio" ? { ...msg, pcm: encodePcm(msg.pcm) } : msg);
 }
 
 /** First message of `type`, or a rejection on timeout / crash / early exit. */
@@ -107,5 +109,15 @@ describe("worker transport (node fork)", () => {
     const { code, signal } = await exitWithin(child, EXIT_TIMEOUT_MS);
     assert.equal(code, 0);
     assert.equal(signal, null);
+  });
+});
+
+describe("PCM codec (JSON IPC)", () => {
+  it("round-trips non-zero samples, including from an offset view, through JSON", () => {
+    const whole = Float32Array.from({ length: 1001 }, (_, i) => Math.sin(i / 7) * (i % 3 === 0 ? -1 : 1));
+    // A view at an odd sample offset, as a subarray of a larger capture buffer.
+    const pcm = whole.subarray(3, 1000);
+    const wire = JSON.parse(JSON.stringify({ pcm: encodePcm(pcm) })) as { pcm: string };
+    assert.deepEqual(decodePcm(wire.pcm), pcm);
   });
 });

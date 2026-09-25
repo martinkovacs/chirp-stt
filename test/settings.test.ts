@@ -30,9 +30,9 @@ describe("SettingsStore", () => {
 
   it("loads and merges a valid file over defaults", () => {
     const file = path.join(tmp, "settings.json");
-    fs.writeFileSync(file, JSON.stringify({ targetLanguage: "de", appendSpace: false }), "utf8");
+    fs.writeFileSync(file, JSON.stringify({ targetLanguage: "hu", appendSpace: false }), "utf8");
     const store = new SettingsStore(tmp);
-    assert.equal(store.get().targetLanguage, "de");
+    assert.equal(store.get().targetLanguage, "hu");
     assert.equal(store.get().appendSpace, false);
     assert.equal(store.get().sourceLanguage, DEFAULT_SETTINGS.sourceLanguage);
   });
@@ -60,6 +60,15 @@ describe("SettingsStore", () => {
     const store = new SettingsStore(tmp);
     assert.equal(store.get().sourceLanguage, DEFAULT_SETTINGS.sourceLanguage);
     assert.equal(store.get().targetLanguage, DEFAULT_SETTINGS.targetLanguage);
+  });
+
+  it("resets a non-English translation pair to English output", () => {
+    writeSettingsFile({ sourceLanguage: "hu", targetLanguage: "de" });
+    assert.equal(new SettingsStore(tmp).get().targetLanguage, "en");
+    const store = new SettingsStore(path.join(tmp, "pair-case"));
+    store.update({ sourceLanguage: "en", targetLanguage: "de" });
+    assert.equal(store.get().targetLanguage, "de", "en→X is supported");
+    assert.equal(store.update({ sourceLanguage: "fr" }).targetLanguage, "en");
   });
 
   it("survives corrupt JSON: defaults + .bak of the corrupt file", () => {

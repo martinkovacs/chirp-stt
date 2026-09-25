@@ -3,7 +3,7 @@ import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/space-grotesk/500.css";
 import "@fontsource/jetbrains-mono/500.css";
 import "./style.css";
-import { LANGUAGES } from "../../shared/types.ts";
+import { canTranslate, LANGUAGES } from "../../shared/types.ts";
 import type { AppStatus, BackendChoice, HistoryEntry, Settings } from "../../shared/types.ts";
 import type { HotkeyInfo } from "../../preload/index.ts";
 import { icon, langPair } from "../icons.ts";
@@ -38,7 +38,6 @@ function fill(select: HTMLSelectElement, entries: [string, string][]) {
 
 const langs = Object.entries(LANGUAGES).sort((a, b) => a[1].localeCompare(b[1]));
 fill($<HTMLSelectElement>("source"), langs);
-fill($<HTMLSelectElement>("target"), langs);
 fill($<HTMLSelectElement>("evdev-key"), EVDEV_CHOICES);
 fill($<HTMLSelectElement>("uiohook-key"), UIOHOOK_CHOICES);
 
@@ -48,14 +47,25 @@ function save(patch: Partial<Settings>) {
   void chirp.setSettings(patch).then(render);
 }
 
+/** Canary only translates to or from English; offer just those targets. */
+function renderTargets(source: string, target: string) {
+  const select = $<HTMLSelectElement>("target");
+  fill(select, langs.filter(([code]) => canTranslate(source, code)));
+  // Same fallback as sanitize() in main.
+  select.value = canTranslate(source, target) ? target : "en";
+}
+
 function render(s: Settings) {
   settings = s;
   $<HTMLSelectElement>("source").value = s.sourceLanguage;
-  $<HTMLSelectElement>("target").value = s.targetLanguage;
+  renderTargets(s.sourceLanguage, s.targetLanguage);
   $("mode-note").textContent =
     s.sourceLanguage === s.targetLanguage
       ? `Plain transcription in ${LANGUAGES[s.sourceLanguage]}.`
       : `You speak ${LANGUAGES[s.sourceLanguage]}, Chirp writes ${LANGUAGES[s.targetLanguage]}.`;
+  if (s.sourceLanguage !== "en") {
+    $("mode-note").textContent += ` Translation works only into English; speak English to write other languages.`;
+  }
 
   $<HTMLSelectElement>("hotkey-backend").value = s.hotkeyBackend;
   $<HTMLSelectElement>("evdev-key").value = s.evdevKey;
@@ -102,7 +112,13 @@ const bindCheck = (id: string, key: keyof Settings) =>
     save({ [key]: (e.target as HTMLInputElement).checked } as Partial<Settings>),
   );
 
-bindSelect("source", "sourceLanguage");
+// Narrow the targets at once, so an unsupported one can't be picked while
+// the save is still in flight.
+$<HTMLSelectElement>("source").addEventListener("change", (e) => {
+  const source = (e.target as HTMLSelectElement).value;
+  renderTargets(source, settings.targetLanguage);
+  save({ sourceLanguage: source });
+});
 bindSelect("target", "targetLanguage");
 bindSelect("hotkey-backend", "hotkeyBackend");
 bindSelect("evdev-key", "evdevKey");

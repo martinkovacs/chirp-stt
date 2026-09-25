@@ -2,6 +2,7 @@ import { fork } from "node:child_process";
 import { utilityProcess, type UtilityProcess } from "electron";
 import { EventEmitter } from "node:events";
 import { fileURLToPath } from "node:url";
+import { encodePcm } from "./pcm.ts";
 import type { BackendChoice, ComputeBackend, DecodeOptions, FromWorker, ToWorker } from "../../shared/types.ts";
 
 export interface FinalResult {
@@ -58,8 +59,10 @@ function nodeProc(workerPath: string, nodePath: string): WorkerProc {
   delete env.ELECTRON_RUN_AS_NODE;
   const child = fork(workerPath, [], {
     execPath: nodePath,
-    // "advanced" keeps Float32Array audio intact across the channel.
-    serialization: "advanced",
+    // JSON, not "advanced": Electron's V8 writes a newer structured-clone
+    // format than the child's Node can read ("Unable to deserialize cloned
+    // data"). Audio is base64-encoded in post() instead.
+    serialization: "json",
     stdio: "inherit",
     env,
     execArgv: [],
@@ -95,7 +98,7 @@ function nodeProc(workerPath: string, nodePath: string): WorkerProc {
   return {
     post: (msg) => {
       try {
-        child.send(msg);
+        child.send(msg.type === "audio" ? { ...msg, pcm: encodePcm(msg.pcm) } : msg);
       } catch {
         /* channel already closed; the crash handling respawns */
       }

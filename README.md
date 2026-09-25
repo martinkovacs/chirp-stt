@@ -8,7 +8,7 @@ Wispr Flow, but runs locally on your own GPU.
 
 - **Engine:** [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp) with
   [Canary-1B-v2 Q8_0](https://huggingface.co/handy-computer/canary-1b-v2-gguf):
-  25 European languages, transcription or any↔any translation.
+  25 European languages, transcription, or translation to and from English.
 - **GPU:** Vulkan (NVIDIA, AMD, Intel), or CUDA / ROCm / Metal where transcribe.cpp provides
   them; pick one in Settings → Engine. The CPU backend runs the regular Q8_0 model whenever
   Chirp can host the speech engine under Node.js ≥ 22 (a bundled binary in release builds;
@@ -26,8 +26,10 @@ Hungarian, Italian, Latvian, Lithuanian, Maltese, Polish, Portuguese, Romanian, 
 Slovak, Slovenian, Spanish, Swedish, Ukrainian.
 
 Pick the language you **speak** and the language to **write in**. If they're the same,
-Chirp just transcribes; if they differ, it translates. Canary can't detect the spoken
-language, so you have to choose it.
+Chirp just transcribes; if they differ, it translates. Canary translates only into or out
+of English (e.g. Hungarian → English or English → German, not Hungarian → German), so
+Chirp offers only those pairs. Canary can't detect the spoken language, so you have to
+choose it.
 
 ## Quick start (Linux)
 
