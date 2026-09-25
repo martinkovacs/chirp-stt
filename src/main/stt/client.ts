@@ -80,12 +80,15 @@ function nodeProc(workerPath: string, nodePath: string): WorkerProc {
   );
   // "error" fires for a failed spawn (no "exit" will follow) and for IPC/kill
   // errors on a live child ("exit" still follows); only end early for the former.
+  // A failed kill() emits "error" synchronously; `stopping` stops the recursion.
+  let stopping = false;
   child.on("error", () => {
     if (ended) return;
     if (child.pid === undefined) {
       ended = true;
       onEnd(null, null);
-    } else {
+    } else if (!stopping) {
+      stopping = true;
       child.kill();
     }
   });
