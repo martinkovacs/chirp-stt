@@ -4,6 +4,7 @@ dist/
 release/
 *.gguf
 *.log
+vendor/
 .env
 .env.*
 .DS_Store

@@ -13,6 +13,7 @@ on:
       - package.json
       - package-lock.json
       - electron.vite.config.ts
+      - scripts/fetch-node.mjs
   workflow_dispatch:
 
 permissions:
@@ -61,6 +62,10 @@ jobs:
         run: npm run typecheck && xvfb-run -a npm test
 
       - run: npm run build
+
+      # Downloads the pinned Node binary that runs the STT worker (host
+      # platform/arch is correct on both runners); must precede electron-builder.
+      - run: node scripts/fetch-node.mjs
 
       # Targets and artifact names live in package.json ("build").
       - run: npx electron-builder ${{ matrix.target }} --publish never

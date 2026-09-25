@@ -133,9 +133,7 @@ $("pick").addEventListener("click", () => void chirp.pickModel());
 function mb(n: number) {
   return (n / 1e6).toFixed(0);
 }
-let lastStatus: AppStatus | null = null;
 function renderStatus(s: AppStatus) {
-  lastStatus = s;
   const engine = $("engine");
   engine.dataset.state = s.state;
   const label = $("engine-label");
@@ -148,7 +146,7 @@ function renderStatus(s: AppStatus) {
       const size = s.model.size >= 1e9 ? `${(s.model.size / 1e9).toFixed(2)} GB` : `${mb(s.model.size)} MB`;
       $("model-lede").textContent =
         `Canary-1B-v2 · ${s.model.label} · ${size} · runs fully offline` +
-        ($<HTMLSelectElement>("compute-backend").value === "cpu" ? ". The CPU backend needs this smaller model." : "");
+        (s.model.smallModel ? ". The CPU backend needs this smaller model." : "");
       break;
     }
     case "downloading": {
@@ -262,11 +260,8 @@ async function loadMics() {
 async function init() {
   await loadMics();
   // Subscribe first: the list may arrive while the calls below are in flight,
-  // and it's only broadcast once. The no-model note depends on the selection.
-  chirp.onBackends((list) => {
-    renderBackends(list);
-    if (lastStatus) renderStatus(lastStatus);
-  });
+  // and it's only broadcast once.
+  chirp.onBackends(renderBackends);
   const initial = await chirp.getBackends();
   if (!backends.length) backends = initial;
   render(await chirp.getSettings());

@@ -1,16 +1,28 @@
-// Electron utilityProcess entry: owns the transcribe.cpp model so inference
-// never blocks the main process.
+// STT worker entry: owns the transcribe.cpp model so inference never blocks
+// the main process. Runs either as an Electron utilityProcess (the fallback)
+// or, preferably, as a child_process fork under a plain Node.js binary.
 import { TranscribeModel, artifactDir, getAvailableBackends, backendAvailable } from "transcribe-cpp";
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import { Dictation } from "./dictation.ts";
 import type { BackendChoice, ComputeBackend, DecodeOptions, FromWorker, ToWorker } from "../../shared/types.ts";
 
+// Transport: inside Electron the utilityProcess exposes parentPort, whose
+// messages arrive wrapped ({ data }) and go out via postMessage. Under a
+// Node.js child_process fork (serialization "advanced") messages come over
+// the process IPC channel and go out via process.send.
 interface ParentPort {
   on(event: "message", listener: (e: { data: ToWorker }) => void): void;
   postMessage(message: FromWorker): void;
 }
-const port = (process as unknown as { parentPort: ParentPort }).parentPort;
+const electronPort = (process as unknown as { parentPort?: ParentPort }).parentPort;
+// PartitionAlloc and its Electron-only quirks (see MAX_CPU_MODEL_BYTES below).
+const inElectron = Boolean((process.versions as { electron?: string }).electron);
+
+function send(msg: FromWorker) {
+  if (electronPort) electronPort.postMessage(msg);
+  else void process.send?.(msg);
+}
 
 // Packaged builds unpack the native libraries to app.asar.unpacked, but
 // transcribe-cpp resolves them inside app.asar, which dlopen can't read.
@@ -38,10 +50,6 @@ function serial<T>(fn: () => Promise<T>): Promise<T> {
   const p = chain.then(fn, fn);
   chain = p.catch(() => {});
   return p;
-}
-
-function send(msg: FromWorker) {
-  port.postMessage(msg);
 }
 
 function errMsg(err: unknown) {
@@ -72,7 +80,8 @@ function listBackends(): BackendChoice[] {
 
 // Electron replaces malloc with PartitionAlloc, which traps (SIGTRAP, exit
 // code 133) on aligned allocations over 1 GiB. ggml allocates CPU weights as
-// one aligned block, so bigger models can't run on the CPU backend.
+// one aligned block, so bigger models can't run on the CPU backend there.
+// Under a plain Node.js runtime (glibc malloc) there is no such limit.
 const MAX_CPU_MODEL_BYTES = 1024 ** 3;
 
 async function load(loadId: number, path: string, backend: ComputeBackend) {
@@ -84,7 +93,7 @@ async function load(loadId: number, path: string, backend: ComputeBackend) {
   const resolved = choices.some((c) => c.backend === backend) ? backend : "auto";
   const effective = resolved === "auto" ? choices[0]?.backend ?? "cpu" : resolved;
   const size = statSync(path).size;
-  if (effective === "cpu" && size > MAX_CPU_MODEL_BYTES) {
+  if (inElectron && effective === "cpu" && size > MAX_CPU_MODEL_BYTES) {
     throw new Error(
       `The CPU backend can't load models over 1 GiB (this one is ${(size / 1e9).toFixed(2)} GB). ` +
         "Use a GPU backend or a smaller quantization such as Q6_K.",
@@ -136,7 +145,19 @@ async function stop(id: number) {
   }
 }
 
-port.on("message", ({ data: msg }) => {
+// Message inlets: parentPort inside Electron, the IPC channel under Node.
+function onMessage(handler: (msg: ToWorker) => void) {
+  if (electronPort) {
+    electronPort.on("message", ({ data: msg }) => handler(msg));
+  } else {
+    process.on("message", (msg: ToWorker) => handler(msg));
+    // Node child (child_process fork): exit when the IPC channel drops so
+    // the worker never outlives the app.
+    process.on("disconnect", () => process.exit(0));
+  }
+}
+
+onMessage((msg) => {
   switch (msg.type) {
     case "load":
       load(msg.loadId, msg.modelPath, msg.backend).catch((err) => send({ type: "load-error", loadId: msg.loadId, message: errMsg(err) }));
