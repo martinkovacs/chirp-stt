@@ -2,6 +2,7 @@ import { fork } from "node:child_process";
 import { utilityProcess, type UtilityProcess } from "electron";
 import { EventEmitter } from "node:events";
 import { fileURLToPath } from "node:url";
+import { encodePcm } from "./pcm.ts";
 import type { BackendChoice, ComputeBackend, DecodeOptions, FromWorker, ToWorker } from "../../shared/types.ts";
 
 export interface FinalResult {
@@ -106,11 +107,6 @@ function nodeProc(workerPath: string, nodePath: string): WorkerProc {
     onMessage: (cb) => (onMessage = cb),
     onExit: (cb) => (onEnd = cb),
   };
-}
-
-/** Float32Array PCM as base64 of its raw bytes, for the JSON IPC channel. */
-function encodePcm(pcm: Float32Array): string {
-  return Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength).toString("base64");
 }
 
 /** Plain Node.js cannot read inside the asar archive; packaging unpacks it. */
