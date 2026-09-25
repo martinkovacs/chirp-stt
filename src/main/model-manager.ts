@@ -27,29 +27,31 @@ export const CPU_MODEL: ModelSpec = {
   label: "Q4_K_M",
 };
 
-// A user-picked model larger than this is not used on CPU (Electron's
-// PartitionAlloc traps on aligned allocations over 1 GiB).
+// A user-picked model larger than this is not used on the CPU backend inside
+// Electron (PartitionAlloc traps on aligned allocations over 1 GiB). Only the
+// Electron utilityProcess runtime needs this; a plain Node.js worker doesn't.
 export const CPU_MAX_MODEL_BYTES = 900 * 1e6;
 
-export function modelFor(cpu: boolean): ModelSpec {
-  return cpu ? CPU_MODEL : DEFAULT_MODEL;
+export function modelFor(smallModel: boolean): ModelSpec {
+  return smallModel ? CPU_MODEL : DEFAULT_MODEL;
 }
 
 export function defaultModelPath(userDataDir: string, model: ModelSpec = DEFAULT_MODEL): string {
   return path.join(userDataDir, "models", model.file);
 }
 
-export function resolveModelPath(settings: Settings, userDataDir: string, cpu = false): string {
+export function resolveModelPath(settings: Settings, userDataDir: string, smallModel = false): string {
   if (settings.modelPath !== "") {
-    // On CPU a user model only counts if it exists and fits; otherwise default.
-    if (!cpu) return settings.modelPath;
+    // On the small-model (Electron CPU) path a user model only counts if it
+    // exists and fits; otherwise default.
+    if (!smallModel) return settings.modelPath;
     try {
       if (fs.statSync(settings.modelPath).size <= CPU_MAX_MODEL_BYTES) return settings.modelPath;
     } catch {
       /* fall through to the default */
     }
   }
-  return defaultModelPath(userDataDir, modelFor(cpu));
+  return defaultModelPath(userDataDir, modelFor(smallModel));
 }
 
 export function modelExists(p: string): boolean {

@@ -9,6 +9,7 @@ import { SettingsStore } from "./settings.ts";
 import { HistoryStore } from "./history.ts";
 import { CPU_MAX_MODEL_BYTES, defaultModelPath, downloadModel, modelExists, modelFor, resolveModelPath } from "./model-manager.ts";
 import { SttClient, SupersededError, defaultWorkerPath } from "./stt/client.ts";
+import { defaultNodeRuntime, findNodeRuntime } from "./stt/node-runtime.ts";
 import { createHotkeySource } from "./input/hotkey.ts";
 import { PortalHotkeySource } from "./input/portal.ts";
 import type { HotkeySource } from "./input/types.ts";
@@ -248,22 +249,23 @@ function setStatus(s: AppStatus) {
   refreshTray();
 }
 
-// The CPU backend needs the smaller Q4_K_M model (Electron's allocator can't
-// hold the Q8 weights in one aligned block).
-async function effectiveBackend(): Promise<{ backend: ComputeBackend; cpu: boolean }> {
+// Electron's allocator can't hold the Q8 weights in one aligned block, so the
+// smaller Q4_K_M model exists for that case only. A worker hosted by plain
+// Node.js has no such limit and uses the normal model like GPU backends.
+async function effectiveBackend(): Promise<{ backend: ComputeBackend; smallModel: boolean }> {
   const list = await stt.backendList();
   const saved = settingsStore.get().computeBackend;
   // No list (the worker never reported one): let transcribe.cpp pick.
   const backend = list.some((b) => b.backend === saved) ? saved : list[0]?.backend ?? "auto";
-  return { backend, cpu: backend === "cpu" };
+  return { backend, smallModel: backend === "cpu" && stt.runtime === "electron" };
 }
 
 async function loadModel() {
   const userData = app.getPath("userData");
   const settings = settingsStore.get();
-  const { backend, cpu } = await effectiveBackend();
-  const model = modelFor(cpu);
-  const path = resolveModelPath(settings, userData, cpu);
+  const { backend, smallModel } = await effectiveBackend();
+  const model = modelFor(smallModel);
+  const path = resolveModelPath(settings, userData, smallModel);
   if (!modelExists(path)) {
     setStatus({ state: "no-model", model: { label: model.label, size: model.size } });
     return;
@@ -280,8 +282,8 @@ async function loadModel() {
 async function startDownload() {
   if (downloadAbort) return;
   downloadAbort = new AbortController();
-  const { cpu } = await effectiveBackend();
-  const model = modelFor(cpu);
+  const { smallModel } = await effectiveBackend();
+  const model = modelFor(smallModel);
   const dest = defaultModelPath(app.getPath("userData"), model);
   try {
     setStatus({ state: "downloading", received: 0, total: model.size });
@@ -294,7 +296,7 @@ async function startDownload() {
     });
     // Keep today's behavior: a custom modelPath beats the default, so only
     // clear it when the downloaded model is the default (non-CPU) one.
-    if (!cpu) settingsStore.update({ modelPath: "" });
+    if (!smallModel) settingsStore.update({ modelPath: "" });
     await loadModel();
   } catch (err) {
     setStatus({ state: "error", message: `Download failed: ${errMsg(err)}` });
@@ -478,7 +480,9 @@ function registerIpc() {
     const picked = r.filePaths[0];
     if (r.canceled || !picked) return null;
     settingsStore.update({ modelPath: picked });
-    if ((await effectiveBackend()).cpu && statSync(picked).size > CPU_MAX_MODEL_BYTES) {
+    // Only Electron's allocator needs the smaller CPU model.
+    const { backend } = await effectiveBackend();
+    if (stt.runtime === "electron" && backend === "cpu" && statSync(picked).size > CPU_MAX_MODEL_BYTES) {
       const msg = {
         type: "info" as const,
         message: "This model is too big for the CPU backend",
@@ -534,7 +538,13 @@ void app.whenReady().then(async () => {
   history = new HistoryStore(userData);
   paster = new Paster({ writeClipboard: writeClipboardText });
   paster.prepare();
-  stt = new SttClient(defaultWorkerPath());
+  const nodePath = findNodeRuntime(defaultNodeRuntime());
+  console.log(
+    nodePath
+      ? `[stt] runtime: node (${nodePath})`
+      : "[stt] runtime: electron utilityProcess (no Node.js >= 22 found)",
+  );
+  stt = new SttClient(defaultWorkerPath(), nodePath);
 
   session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === "media"));
   session.defaultSession.setPermissionCheckHandler((_wc, perm) => perm === "media");

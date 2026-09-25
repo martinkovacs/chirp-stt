@@ -13,7 +13,7 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --test --experimental-strip-types test/*.test.ts",
-    "dist": "electron-vite build && electron-builder"
+    "dist": "node scripts/fetch-node.mjs && electron-vite build && electron-builder"
   },
   "dependencies": {
     "dbus-next": "^0.10.2",
@@ -63,6 +63,7 @@
       }
     ],
     "asarUnpack": [
+      "out/main/stt-worker.js",
       "node_modules/transcribe-cpp/**",
       "node_modules/@transcribe-cpp/**",
       "node_modules/koffi/**",
@@ -75,6 +76,12 @@
       "artifactName": "Chirp-${version}-linux-${arch}.${ext}",
       "category": "Utility",
       "icon": "resources/icon.png",
+      "extraResources": [
+        {
+          "from": "vendor/node/linux-${arch}",
+          "to": "node"
+        }
+      ],
       "desktop": {
         "entry": {
           "Name": "Chirp",
@@ -87,7 +94,13 @@
       "target": [
         "squirrel"
       ],
-      "icon": "resources/icon.png"
+      "icon": "resources/icon.png",
+      "extraResources": [
+        {
+          "from": "vendor/node/win32-${arch}",
+          "to": "node"
+        }
+      ]
     },
     "squirrelWindows": {
       "artifactName": "Chirp-Setup-${version}.${ext}"
@@ -99,6 +112,12 @@
       ],
       "icon": "resources/icon.png",
       "category": "public.app-category.productivity",
+      "extraResources": [
+        {
+          "from": "vendor/node/darwin-${arch}",
+          "to": "node"
+        }
+      ],
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Chirp transcribes what you say while you hold the dictation key."
       }

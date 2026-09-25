@@ -10,9 +10,11 @@ Wispr Flow, but runs locally on your own GPU.
   [Canary-1B-v2 Q8_0](https://huggingface.co/handy-computer/canary-1b-v2-gguf):
   25 European languages, transcription or any↔any translation.
 - **GPU:** Vulkan (NVIDIA, AMD, Intel), or CUDA / ROCm / Metal where transcribe.cpp provides
-  them; pick one in Settings → Engine. The CPU backend instead uses the smaller Q4_K_M model
-  (735 MB, downloaded on demand), because Electron's allocator can't hold the Q8 weights in
-  one block.
+  them; pick one in Settings → Engine. The CPU backend runs the regular Q8_0 model whenever
+  Chirp can host the speech engine under Node.js ≥ 22 (a bundled binary in release builds;
+  the system `node` during development). Without a Node.js runtime it falls back to the
+  smaller Q4_K_M model (735 MB, downloaded on demand), because Electron's allocator can't
+  hold the Q8 weights in one block.
 - **Lives in the tray:** a small overlay shows the live text while you talk, and a settings
   window holds languages, hotkey, output mode and history.
 - **Platforms:** Linux with Wayland first (developed on KDE Plasma), also X11, Windows and macOS.
@@ -104,7 +106,7 @@ Settings and history are stored in `~/.config/chirp-stt/` on Linux,
         │  ▲
   audio │  │ partial / final text
         ▼  │
- STT worker (utilityProcess) ── transcribe.cpp + Canary-1B-v2 on Vulkan
+ STT worker (Node.js child or utilityProcess) ── transcribe.cpp + Canary-1B-v2 on Vulkan
         ▲
         │ 16 kHz mono PCM (AudioWorklet)
  overlay window (mic capture + live text)
@@ -122,8 +124,15 @@ talk Chirp re-decodes the audio that isn't committed yet about every 800 ms. Whe
 more, committed, and never decoded again. Continuous speech is force-cut at 25 s. This
 keeps long dictations fast, and each decode costs only a few milliseconds on the GPU.
 
-The model runs in a separate `utilityProcess`, so a crash in native code can't take the UI
-down. If the worker crashes, it is restarted and the model is reloaded automatically.
+The model runs in a separate process, so a crash in native code can't take the UI down. Chirp
+prefers to host it in a plain Node.js ≥ 22 runtime — the official Node binary bundled next to
+the app in release builds, or the system `node` in dev — which also lifts Electron's allocator
+limit so the CPU backend can load the full Q8_0 model; when no Node.js runtime is found it
+falls back to Electron's `utilityProcess` and the smaller Q4_K_M model on CPU. Either way the
+worker is restarted and the model reloaded automatically after a crash. The runtime can be
+overridden with the `CHIRP_NODE` environment variable: set it to an absolute Node.js
+executable path (an unusable path is an error, not a fallback), or to `0` to always use the
+Electron utilityProcess.
 
 ## Troubleshooting
 
@@ -179,7 +188,10 @@ npm run dist   # AppImage + deb on Linux, NSIS installer on Windows, dmg on macO
 ```
 
 Native modules (transcribe.cpp, koffi, uiohook-napi) are unpacked from the asar archive so
-they can load. The model is not bundled; it's downloaded on first run.
+they can load, and so does the worker script (`out/main/stt-worker.js`) — a plain Node.js
+child can't read inside the asar archive. A bundled Node.js ≥ 22 binary is shipped in
+`<resources>/node/` so the speech engine can run outside Electron. The model is not bundled;
+it's downloaded on first run.
 
 ## License
 
