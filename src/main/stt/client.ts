@@ -73,19 +73,22 @@ function nodeProc(workerPath: string, nodePath: string): WorkerProc {
   child.on(
     "exit",
     (code, signal) => {
+      if (ended) return;
       ended = true;
       onEnd(code, signal ?? null);
     },
   );
-  // A spawn failure (bad execPath) never reaches "exit"; report it like one.
-  child.on(
-    "error",
-    () => {
-      if (ended) return;
+  // "error" fires for a failed spawn (no "exit" will follow) and for IPC/kill
+  // errors on a live child ("exit" still follows); only end early for the former.
+  child.on("error", () => {
+    if (ended) return;
+    if (child.pid === undefined) {
       ended = true;
       onEnd(null, null);
-    },
-  );
+    } else {
+      child.kill();
+    }
+  });
   return {
     post: (msg) => {
       try {

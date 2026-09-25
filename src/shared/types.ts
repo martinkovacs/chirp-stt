@@ -109,7 +109,8 @@ export type FromWorker =
 // ---------------------------------------------------------------------------
 
 export type AppStatus =
-  | { state: "no-model"; model: { label: string; size: number } }
+  /** smallModel: the CPU backend under Electron needs the smaller quantization. */
+  | { state: "no-model"; model: { label: string; size: number; smallModel: boolean } }
   | { state: "downloading"; received: number; total: number }
   | { state: "loading" }
   | { state: "ready"; backend: string }

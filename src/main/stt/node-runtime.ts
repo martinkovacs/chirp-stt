@@ -18,6 +18,8 @@ export interface NodeRuntimeDeps {
   exists(path: string): boolean;
   /** Runs `<path> --version`; null when that can't be executed. */
   version(path: string): string | null;
+  /** Optional sink for fallback warnings; defaultNodeRuntime uses console.warn. */
+  warn?(message: string): void;
 }
 
 /**
@@ -34,10 +36,13 @@ export function findNodeRuntime(opts: NodeRuntimeDeps): string | null {
   const override = (opts.env.CHIRP_NODE ?? "").trim();
   if (override !== "") {
     if (override === "0") return null;
-    return usable(opts, override);
+    return usable(opts, override, `CHIRP_NODE=${override}`);
   }
 
-  if (opts.isPackaged) return usable(opts, bundledPath(opts));
+  if (opts.isPackaged) {
+    const bundled = bundledPath(opts);
+    return usable(opts, bundled, bundled);
+  }
 
   const bin = opts.platform === "win32" ? "node.exe" : "node";
   const found = which(opts, bin);
@@ -46,11 +51,16 @@ export function findNodeRuntime(opts: NodeRuntimeDeps): string | null {
 }
 
 /** A candidate counts only if `<path> --version` reports a stable >= MIN_MAJOR. */
-function usable(opts: NodeRuntimeDeps, path: string): string | null {
+function usable(opts: NodeRuntimeDeps, path: string, complain?: string): string | null {
   // Exact "vX.Y.Z" only, so prerelease builds ("v22.0.0-rc.1") and odd
   // version-like strings are rejected too.
   const major = /^v?(\d+)\.\d+\.\d+$/.exec(opts.version(path) ?? "")?.[1];
-  return major !== undefined && Number(major) >= MIN_MAJOR ? path : null;
+  if (major !== undefined && Number(major) >= MIN_MAJOR) return path;
+  // Only a pinned candidate (explicit CHIRP_NODE, the packaged binary) warns;
+  // a dev box without a usable Node.js is normal and stays quiet.
+  if (complain !== undefined)
+    opts.warn?.(`${complain} is not a usable Node.js >= ${MIN_MAJOR}; falling back to the Electron runtime`);
+  return null;
 }
 
 /** `<resourcesPath>/node/node(.exe)` as the packaging side ships it. */
@@ -85,6 +95,7 @@ export function defaultNodeRuntime(): NodeRuntimeDeps {
     isPackaged: app?.isPackaged ?? false,
     resourcesPath: process.resourcesPath,
     platform: process.platform,
+    warn: console.warn,
     exists: (path) => {
       try {
         return existsSync(path);
@@ -94,7 +105,7 @@ export function defaultNodeRuntime(): NodeRuntimeDeps {
     },
     version: (path) => {
       try {
-        return execFileSync(path, ["--version"], { timeout: 5000 }).toString().trim();
+        return execFileSync(path, ["--version"], { timeout: 5000, windowsHide: true }).toString().trim();
       } catch {
         return null;
       }

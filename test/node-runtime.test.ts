@@ -78,6 +78,14 @@ describe("findNodeRuntime", () => {
     assert.deepEqual(fake.calls, ["/app/resources/node/node"], "only the bundled path was probed");
   });
 
+  it("warns when the packaged bundled binary is unusable", () => {
+    const warnings: string[] = [];
+    const fake: Fake = { versions: new Map([["/app/resources/node/node", OLD]]), files: new Set(), calls: [] };
+    const r = findNodeRuntime(deps(fake, { isPackaged: true, warn: (m) => warnings.push(m) }));
+    assert.equal(r, null);
+    assert.deepEqual(warnings, ["/app/resources/node/node is not a usable Node.js >= 22; falling back to the Electron runtime"]);
+  });
+
   it("CHIRP_NODE overrides everything", () => {
     const explicit = "/opt/node/bin/node";
     const fake: Fake = { versions: new Map(Object.entries({ [explicit]: GOOD, [PATH_NODE]: GOOD })), files: new Set([PATH_NODE]), calls: [] };
@@ -101,6 +109,16 @@ describe("findNodeRuntime", () => {
     }));
     assert.equal(r, null);
     assert.deepEqual(fake.calls, [broken]);
+  });
+
+  it("warns when CHIRP_NODE is set but unusable", () => {
+    const broken = "/usr/bin/nodejs-old";
+    const warnings: string[] = [];
+    const fake: Fake = { versions: new Map([[broken, OLD]]), files: new Set(), calls: [] };
+    const r = findNodeRuntime(deps(fake, { env: { CHIRP_NODE: broken }, warn: (m) => warnings.push(m) }));
+    assert.equal(r, null);
+    assert.deepEqual(fake.calls, [broken]);
+    assert.deepEqual(warnings, [`CHIRP_NODE=${broken} is not a usable Node.js >= 22; falling back to the Electron runtime`]);
   });
 
   it("CHIRP_NODE=0 disables the Node runtime entirely", () => {

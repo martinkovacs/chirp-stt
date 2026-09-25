@@ -267,7 +267,7 @@ async function loadModel() {
   const model = modelFor(smallModel);
   const path = resolveModelPath(settings, userData, smallModel);
   if (!modelExists(path)) {
-    setStatus({ state: "no-model", model: { label: model.label, size: model.size } });
+    setStatus({ state: "no-model", model: { label: model.label, size: model.size, smallModel } });
     return;
   }
   setStatus({ state: "loading" });
