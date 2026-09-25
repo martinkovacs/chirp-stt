@@ -127,30 +127,14 @@ jobs:
     needs: [version, build]
     runs-on: ubuntu-latest
     steps:
-      # A hand-pushed tag may already have its release; never overwrite it.
-      - id: published
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.version.outputs.tag }}
-        run: |
-          if out=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" 2>&1); then
-            echo "$TAG is already published; nothing to do."
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          elif grep -q "release not found" <<< "$out"; then
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "::error::Release lookup for $TAG failed: $out"
-            exit 1
-          fi
-
-      - if: steps.published.outputs.exists == 'false'
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
 
-      - if: steps.published.outputs.exists == 'false'
-        uses: softprops/action-gh-release@v2
+      # Re-running a failed release updates it in place, uploading any
+      # assets that are missing.
+      - uses: softprops/action-gh-release@v2
         with:
           # On main this creates the tag at the merged commit. Tags made with
           # GITHUB_TOKEN don't trigger workflows, so this doesn't run twice.
